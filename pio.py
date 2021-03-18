@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 ========================================================================================
  (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
@@ -11,27 +12,46 @@
  license in this material to reproduce, prepare derivative works, distribute copies to
  the public, perform publicly and display publicly, and to permit others to do so.
 ========================================================================================
+
+To get latest official version of this script:
+  git clone git@gitlab.lanl.gov:sriram/pio-tools.git
+
+A simple class to read and manipulate PIO files.
+Demo at bottom expands fractional volume and fractional energy.
+
+Author: Sriram Swaminarayan (sriram@lanl.gov)
+Date: December 02, 2021
+Version: 1.01
+
+Change Log:
+Version 1.01: 2021-12-02: Introduced sizeMatArrays to recognize fractional arrays
+                          Set buffer size to 8GB for copyToOffset()
+Version 1.00: 2021-03-01: Initial commit
 """
 from __future__ import print_function
 import numpy as np
 import struct
 
+
 class pio:
     """
-    Author: Sriram Swaminarayan (sriram@lanl.gov)
-    Date: March 17, 2021
-    Version: 1.0
 
     This class will read PIO files and allow minimal manipulation.
     It is expected that other scripts will build on the PIO class
     to do heavy-duty lifting.
+
+    Author: Sriram Swaminarayan (sriram@lanl.gov)
+    Date: December 02, 2021
+    Version: 1.01
+
     """
 
-    def __init__(self, theFile):
+    def __init__(self, theFile, verbose=0):
         """
         Initializes a PIO class and returns a PIO object.
-        Argument is the PIO file to be read
+        Argument is the PIO file to be read.
         """
+        self.verbose = verbose
 
         self.fp = open(theFile, mode="rb")
 
@@ -39,7 +59,8 @@ class pio:
 
         # read signature
         s = self.str(8)
-        print(f"  File type is: {s}")
+        if self.verbose:
+            print(f"  File type is: {s}")
         if not s.lower() == b"pio_file":
             raise ValueError("Invalid file type")
 
@@ -50,7 +71,8 @@ class pio:
 
         # read version
         self.version = self.ints()
-        print(f"version={self.version}")
+        if self.verbose:
+            print(f"version={self.version}")
 
         # read element lengths
         self.lName = self.ints()
@@ -59,7 +81,8 @@ class pio:
 
         # read data/time
         self.date = self.str(16)
-        print(self.date)
+        if self.verbose:
+            print(self.date)
 
         # read number of variables and index location
         self.n = self.ints()
@@ -68,20 +91,92 @@ class pio:
         # read file signature
         self.signature = self.ints()
 
-         # read the variable index
+        # read the variable index
         self.names = {}
         self.xnames = []
-        print('position=',self.position)
+        if self.verbose:
+            print("position=", self.position)
         self.seek(self.position)
         for i in range(int(self.n)):
             hdf = self.readArrayHeader()
             idx = hdf["name"].strip() + b"_%d" % hdf["index"]
-            self.names[idx] = hdf
+            self.names[idx.decode()] = hdf
             self.xnames.append(hdf)
 
-        cch = self.names[b"cell_center_1"]
+        # get the number of dimensions based on cell data
+        cch = self.names["cell_center_1"]
         self.numcell = int(cch["length"])
         self.outOffset = -1
+        if "cell_center_3" in self.names:
+            self.ndim = 3
+        elif "cell_center_2" in self.names:
+            self.ndim = 2
+        else:
+            self.ndim = 1
+
+        # initialize the CSR data
+        self.csrN = 0
+        self.csrLen = 0
+        self.invVol = None
+        self.csrID = None
+        self.csrIdx = None
+
+    def updateCsrIndices(self, csr_counts, csr_ids, csr_vols, shift=1):
+        if self.csrIdx is not None:
+            return
+
+        print("updating")
+        if not csr_counts.endswith("_0"):
+            csr_counts += "_0"
+
+        if not csr_ids.endswith("_0"):
+            csr_ids += "_0"
+
+        if not csr_vols.endswith("_0"):
+            csr_vols += "_0"
+
+        # read volume and invert
+        self.invVolume = 1.0 / self.readArray(csr_vols)
+
+        # read, convert, and shift CSR IDs
+        self.csrID = self.readArray(csr_ids).astype(np.int64)
+        self.csrN = max(self.csrID)
+        self.csrID -= shift
+
+        # read counts and convert to indices
+        self.csrIdx = self.readArray(csr_counts).astype(np.int64)  # read array
+        self.csrLen = sum(self.csrIdx)
+        self.csrIdx = np.append(self.csrIdx, 0)  # extend array
+        iSum = 0  # indexing starts at 0
+        for iCell in range(self.numcell):
+            iNext = self.csrIdx[iCell]
+            self.csrIdx[iCell] = iSum
+            iSum += iNext
+        self.csrIdx[self.numcell] = iSum
+
+    def expandCsrVariable(self, name, scale=False):
+        """
+        Returns the expanded "index" version of the variable
+        """
+        if self.csrN == 0:
+            return None
+
+        if not name.endswith("_0"):
+            name += "_0"
+        data = self.readArray(name)
+
+        newArray = np.zeros((self.csrN, self.numcell))
+        for iCell in range(self.numcell):
+            iStart = self.csrIdx[iCell]
+            iEnd = self.csrIdx[iCell + 1]
+            for idx in range(iStart, iEnd):
+                iCsr = self.csrID[idx]
+                if scale:
+                    newArray[iCsr][iCell] = data[idx] * self.invVolume[iCell]
+                else:
+                    newArray[iCsr][iCell] = data[idx]
+
+        return newArray
 
     def writeHeader(self, fp):
         """
@@ -95,7 +190,7 @@ class pio:
         ).tofile(fp)
         fp.write(self.date)
         np.array([self.n, self.position, self.signature], dtype="double").tofile(fp)
-        np.zeros((self.lHeader-11), dtype='double').tofile(fp)
+        np.zeros((self.lHeader - 11), dtype="double").tofile(fp)
         self.outOffset = self.lHeader
 
     def writeWithNewCellArray(self, outName, newName, newData):
@@ -104,12 +199,12 @@ class pio:
         `newData` to the PIO file and writes it to file named
         `outname`.
         """
-        
+
         # now add in a new array
         self.oldPosition = self.position
-        
+
         self.addCellArray(newName)
-        
+
         with open(outName, "wb") as ofp:
             # write the header
             self.writeHeader(ofp)
@@ -126,20 +221,90 @@ class pio:
 
             ofp.close()
         self.outOffset = -1
-        
+
+    def writeWithExpandedCsrArray(self, outName, myVars=None, outIndices=None):
+        """
+        Adds all chunk_ variables to the PIO file and
+        writes it to file named `outname`.
+        """
+
+        # save old offset
+        self.oldPosition = self.position
+
+        # Update material indices
+        self.updateMaterialIndices()
+
+        # Add variables to the list
+        if myVars is None:
+            myVars = []
+            for name in self.names:
+                if self.names[name]["length"] == self.csrLen:
+                    if name.endswith("_0"):
+                        name = name[:-2]
+                    myVars.append(name)
+
+        if outIndices is None:
+            outIndices = [x + 1 for x in range(self.csrN)]
+
+        for name in myVars:
+            # add in an entry per CSR Index
+            for iCsr in outIndices:
+                self.addCellArray(f"{name}-{iCsr}")
+
+        # open file and write data
+        with open(outName, "wb") as ofp:
+            # write the header
+            self.writeHeader(ofp)
+
+            # copy rest of file till old Index offset
+            self.copyToOffset(ofp, self.lHeader, self.oldPosition)
+
+            # write new data to file
+            for name in myVars:
+                theVar = p.expandCsrVariable(name, True)
+                print(name, theVar.shape)
+                for iCsr in outIndices:
+                    newData = theVar[iCsr - 1, :]
+                    print(
+                        "  Writing:",
+                        name + f"-{iCsr}",
+                        iCsr,
+                        newData.shape,
+                        newData.dtype,
+                    )
+                    newData.tofile(ofp)
+                    self.outOffset += self.numcell
+
+            # write Index
+            self.writeIndex(ofp)
+
+            ofp.close()
+        self.outOffset = -1
 
     def writeIndex(self, outfp):
+        """
+        Writes the index of variables to outfp.
+        This is the trailer to the PIO file.
+        """
         for x in self.xnames:
             outfp.write(x["bytes"])
             self.outOffset += self.lIndex
-            
+
     def copyToOffset(self, outfp, offsetStart, offsetEnd):
+        """
+        Copies data verbatim from self.fp to outfp from
+        offsetStart to offsetEnd in self.fp.
+
+        The copying is done in self.numcell double sized
+        blocks unless cells are less than 1M, in which
+        case it is done in blocks of size 1M doubles.
+        """
         self.seek(offsetStart)
         sz = offsetEnd - offsetStart
-        if self.numcell < 1048576:
-            bufsize = 1048576
-        else:
-            bufsize = self.numcell
+
+        # Read / write at most 8GB at once
+        bufsize = 1024 ** 3
+
         written = 0
         left = sz
         while left:
@@ -149,32 +314,81 @@ class pio:
             buf.tofile(outfp)
             written += bufsize
             left -= bufsize
-            print(f"{0.95*(100.*written)/sz:.2f}%  written ")
+            if self.verbose:
+                print(f"{0.95*(100.*written)/sz:.2f}%  written ")
         self.outOffset += sz
 
-    def addCellArray(self, name):
-        cch = self.copyArrayHeader(self.names[b"pres_0"])
+    def addCellArray(self, name, idx=0, copyFrom="pres_0"):
+        """
+        Appends metadata for a new variable to the list of
+        variables (self.names, self.xnames).  The base data
+        is copied from the variable 'copyFrom' which defaults
+        to pres_0.
+
+        No checks are done on copyFrom, and swift death can
+        result if you are not careful.
+        """
+        cch = self.copyArrayHeader(self.names[copyFrom])
         fmt = "%%-%ds" % self.lName
         cch["name"] = bytes(name, "utf8")
         longName = bytes(fmt % name, "utf8")
         cch["offset"] = self.lIndex
         b = cch["bytes"]
         o = self.lName
-        cch["bytes"] = longName + bytes(np.array([0, self.numcell, self.position, 0], dtype='double'))
-        print(cch["bytes"], len(cch["bytes"]))
+        cch["bytes"] = longName + bytes(
+            np.array([0, self.numcell, self.position, 0], dtype="double")
+        )
+        if self.verbose:
+            print(cch["bytes"], len(cch["bytes"]))
         self.position += self.numcell
         self.n += 1
-        self.names[name + "_0"] = cch
+        self.names[f"{name}_{idx}"] = cch
         self.xnames.append(cch)
         return
 
     def readArray(self, name):
+        """
+        Reads given array from the file and
+        returns it as an array of doubles.
+
+        Returns None if array is not found.
+        """
         if name not in self.names:
             return None
         hdr = self.names[name]
         self.seek(hdr["offset"])
         data = self.doubles(hdr["length"], force=True)
-        print("return:", data)
+        return data
+
+    def readArrayInt(self, name):
+        """
+        Reads given array from the file and
+        returns it as an array of doubles.
+
+        Returns None if array is not found.
+        """
+        if name not in self.names:
+            return None
+        hdr = self.names[name]
+        self.seek(hdr["offset"])
+        data = self.ints(hdr["length"], force=True)
+        return data
+
+    def readArrayRange(self, name, iStart, N, force=False, ints=False):
+        """
+        Reads N entries from given array starting at iStart
+        Returns it as an array of doubles.
+
+        Returns None if array is not found.
+        """
+        if name not in self.names:
+            return None
+        hdr = self.names[name]
+        self.seek(hdr["offset"] + iStart)
+        if ints:
+            data = self.ints(N, force=True)
+        else:
+            data = self.doubles(N, force=True)
         return data
 
     def readArrayHeader(self):
@@ -185,9 +399,9 @@ class pio:
         start = self.offset
         data = self.str(8 * self.lIndex)
         name = data[:x]
-        index = int(struct.unpack('d',data[x:x+8])[0])
-        length = int(struct.unpack('d',data[x+8:x+16])[0])
-        offset = int(struct.unpack('d',data[x+16:x+24])[0])
+        index = int(struct.unpack("d", data[x : x + 8])[0])
+        length = int(struct.unpack("d", data[x + 8 : x + 16])[0])
+        offset = int(struct.unpack("d", data[x + 16 : x + 24])[0])
         return {
             "name": name,
             "index": index,
@@ -195,7 +409,7 @@ class pio:
             "offset": offset,
             "bytes": data,
         }
-    
+
     def copyArrayHeader(self, src):
         """ Returns a copy of the array header """
         ret = {}
@@ -210,19 +424,21 @@ class pio:
         self.fp.seek(offset)
 
     def str(self, count=1, offset=None):
-        """ Reads count characters from the input file """
+        """ Reads count bytes from the input file """
         count = int(count)
         if offset is not None:
             self.seek(offset)
         s = self.fp.read(count)
-        self.offset += int(count/8)
+
+        # offset is counted in doubles
+        self.offset += int(count / 8)
         return s
 
     def doubles(self, count=1, offset=None, force=False):
         """
         Reads count doubles from the input file.
         If count == 1 and force is False, then it will
-        return scalars.  
+        return scalars.
         """
         count = int(count)
         if offset is not None:
@@ -237,29 +453,38 @@ class pio:
         """
         Reads count doubles from the input file and returns as ints.
         If count == 1 and force is False, then it will
-        return scalars.  
+        return scalars.
         """
-        count = int(count)
-        if offset is not None:
-            self.seek(offset)
-        raw = np.fromfile(self.fp, dtype="double", count=count)
-        self.offset += count
         if count == 1 and (not force):
-            return int(raw[0])
-        value = [int(x) for x in raw]
+            value = int(self.doubles(count, offset, force))
+        else:
+            value = [int(x) for x in self.doubles(count, offset, force)]
         return value
 
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) < 2:
-        print(f"""
+        print(
+            f"""
         {sys.argv[0]} takes at least one argument.
-        """)
+        """
+        )
     else:
         filename = sys.argv[1]
         p = pio(filename)
-        print('number of cells = ',p.numcell)
+        p.updateCsrIndices("chunk_nummat", "chunk_mat", "vcell", 1)
+        print("CSR variables are:")
+        for n in p.names:
+            if p.names[n]["length"] == p.csrLen:
+                print("    ", n)
 
+        # Will write chunk_vol and chunk_eng for all CSR Indices
+        outName = "bigfile-dmp000000"
+        myVars = ["chunk_vol", "chunk_eng"]
+        outIndices = None
+        p.writeWithExpandedCsrArray(outName, myVars, outIndices)
 
-    
+        # # To write all CSR variables to file for all materials:
+        # p.writeWithExpandedCsrArray(outName)
