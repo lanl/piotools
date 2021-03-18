@@ -11,6 +11,8 @@
  license in this material to reproduce, prepare derivative works, distribute copies to
  the public, perform publicly and display publicly, and to permit others to do so.
 ========================================================================================
+
+A simple class to read and manipulate PIO files.
 """
 from __future__ import print_function
 import numpy as np
@@ -30,7 +32,7 @@ class pio:
     def __init__(self, theFile):
         """
         Initializes a PIO class and returns a PIO object.
-        Argument is the PIO file to be read
+        Argument is the PIO file to be read.
         """
 
         self.fp = open(theFile, mode="rb")
@@ -129,11 +131,23 @@ class pio:
         
 
     def writeIndex(self, outfp):
+        """
+        Writes the index of variables to outfp.
+        This is the trailer to the PIO file.
+        """
         for x in self.xnames:
             outfp.write(x["bytes"])
             self.outOffset += self.lIndex
             
     def copyToOffset(self, outfp, offsetStart, offsetEnd):
+        """
+        Copies data verbatim from self.fp to outfp from
+        offsetStart to offsetEnd in self.fp.
+
+        The copying is done in self.numcell double sized
+        blocks unless cells are less than 1M, in which
+        case it is done in blocks of size 1M doubles.
+        """
         self.seek(offsetStart)
         sz = offsetEnd - offsetStart
         if self.numcell < 1048576:
@@ -152,8 +166,17 @@ class pio:
             print(f"{0.95*(100.*written)/sz:.2f}%  written ")
         self.outOffset += sz
 
-    def addCellArray(self, name):
-        cch = self.copyArrayHeader(self.names[b"pres_0"])
+    def addCellArray(self, name, copyFrom=b"pres_0"):
+        """
+        Appends metadata for a new variable to the list of
+        variables (self.names, self.xnames).  The base data
+        is copied from the variable 'copyFrom' which defaults
+        to pres_0.
+
+        No checks are done on copyFrom, and swift death can
+        result if you are not careful.
+        """
+        cch = self.copyArrayHeader(self.names[copyFrom])
         fmt = "%%-%ds" % self.lName
         cch["name"] = bytes(name, "utf8")
         longName = bytes(fmt % name, "utf8")
@@ -169,6 +192,12 @@ class pio:
         return
 
     def readArray(self, name):
+        """
+        Reads given array from the file and
+        returns it as an array of doubles.
+        
+        Returns None if array is not found.
+        """
         if name not in self.names:
             return None
         hdr = self.names[name]
@@ -210,11 +239,13 @@ class pio:
         self.fp.seek(offset)
 
     def str(self, count=1, offset=None):
-        """ Reads count characters from the input file """
+        """ Reads count bytes from the input file """
         count = int(count)
         if offset is not None:
             self.seek(offset)
         s = self.fp.read(count)
+
+        # offset is counted in doubles
         self.offset += int(count/8)
         return s
 
