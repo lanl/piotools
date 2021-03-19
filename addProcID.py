@@ -177,7 +177,7 @@ class pio:
             print(f'{0.95*(100.*read)/sz:.2f}%  written ')
 
     def addCellArray(self, name):
-        cch = self.copyHeader(self.names[b'pres_0'])
+        cch = self.copyHeader(self.names[b'cell_center_1'])
         fmt = '%%-%ds'%self.lName
         cch['name'] = bytes(name,'utf8')
         longName = bytes(fmt%name,'utf8')
