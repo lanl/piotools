@@ -203,7 +203,6 @@ class pio:
         hdr = self.names[name]
         self.seek(hdr["offset"])
         data = self.doubles(hdr["length"], force=True)
-        print("return:", data)
         return data
 
     def readArrayHeader(self):
@@ -291,6 +290,8 @@ if __name__ == "__main__":
         filename = sys.argv[1]
         p = pio(filename)
         print('number of cells = ',p.numcell)
+        print(p.names.keys())
+        print(p.names[b'cell_center_1'])
+        c = p.readArray(b'cell_center_1')
+        print(c[1:10])
 
-
-    
