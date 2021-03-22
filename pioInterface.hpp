@@ -62,15 +62,6 @@ private:
   void updateNCell();
   void updateNLevel();
   void updateUniqMap();
-
-  template <typename T>
-  std::vector<T> getVariable(const char *field, int index=0); //< field name must exactly match variable in PIO file
-  
-  template <typename T>
-  std::vector<T> getField(const char *field, int index=0); //< field name is name without index
-  
-  template <typename T>
-  std::map<int, std::vector<T>> getField2D(const char *field); //< field name is name without index
   
   void releaseMapByLevel();
   void freeField(const char *name);
@@ -87,17 +78,61 @@ public:
   const xyz_t *dXyz() { return dXyz_; }
   const int64_t *uniqMap() { return (const int64_t *)uniqMap_; }
 
-  std::map<int, std::vector<double>> center() { return center_; }
-  std::vector<int64_t> level() { return level_; }
-  std::vector<int64_t> daughter() { return daughter_; }
+  std::map<int, std::vector<double>> &center() { return center_; }
+  std::vector<int64_t> &level() { return level_; }
+  std::vector<int64_t> &daughter() { return daughter_; }
 
   std::vector<std::string> getFieldNames();
 
   int64_t getFieldWidth(const char *field); //< Width / Number of instances of a field
   int64_t getFieldLength(const char *field); //< Length of a field
 
-  std::vector<const char *> getVCField(const char *field, int index=0);      //< returns a character pointer
-  std::string getStringField(const char *field, int index=0); //< returns a string field
+  std::vector<const char *> getVCField(const char *field, int index=0) {
+    /** for any type other than double we need to get double data and then
+     * translate **/
+    /* given a pio_data field and a field name, returns the data associated with
+     * the field
+     */
+    std::vector<const char *> cVec;
+    std::vector<double> origData = getField<double>(field, index);
+    int l = getFieldLength(field);
+    const char *data = strndup((const char *)(origData.data()), l*sizeof(double));
+    cVec.push_back(data);
+    return cVec;
+  }
+
+  std::string getStringField(const char *field, int index=0) {
+    std::vector<double> origData = getField<double>(field, index);
+    int l = getFieldLength(field);
+    const char *data = strndup((const char *)(origData.data()), l*sizeof(double));
+    std::string s;
+    s = std::string(data);
+    free((void *) data);
+    return s;
+  }
+
+  template <typename T>
+  std::vector<T> getVariable(const char *field, int index=0) {
+    // field name *must* exactly match a field in PIO file
+    return pd->variable<T>(field, index);
+  }
+
+  template <typename T>
+  std::vector<T> getField(const char *field, int index=0) {
+    return pd->variable<T>(field, index);
+  }
+
+
+  template <typename T>
+  std::map<int, std::vector<T>> getField2D(const char *field) {
+    std::map<int, std::vector<T>> data;
+    int w = getFieldWidth(field);
+    for ( int i = 1; i<=w; i++ ) {
+      data[i-1] = pd->variable<T>(field, i);
+    }
+    return data;
+  }
+
   std::map<int,std::vector<double>> getMaterialVariable(const char *field); //< gets a map of a material variable
   
   template <class T> const T *getUniqMap(const T *field);

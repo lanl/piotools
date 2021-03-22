@@ -65,53 +65,6 @@ int64_t PioInterface::getFieldWidth(const char *field) {
   return pd->arrayDims[field].w;
 }
 
-
-std::vector<const char *> PioInterface::getVCField(const char *field, int index) {
-  /** for any type other than double we need to get double data and then
-   * translate **/
-  /* given a pio_data field and a field name, returns the data associated with
-   * the field
-   */
-  std::vector<const char *> cVec;
-  std::vector<double> origData = getField<double>(field, index);
-  int l = getFieldLength(field);
-  const char *data = strndup((const char *)(origData.data()), l*sizeof(double));
-  cVec.push_back(data);
-  return cVec;
-}
-
-std::string PioInterface::getStringField(const char *field, int index) {
-  std::vector<double> origData = getField<double>(field, index);
-  int l = getFieldLength(field);
-  const char *data = strndup((const char *)(origData.data()), l*sizeof(double));
-  std::string s;
-  s = std::string(data);
-  free((void *) data);
-  return s;
-}
-
-template <typename T>
-std::vector<T> PioInterface::getVariable(const char *field, int index) {
-  // field name *must* exactly match a field in PIO file
-  return pd->variable<T>(field, index);
-}
-
-template <typename T>
-std::vector<T> PioInterface::getField(const char *field, int index) {
-  return pd->variable<T>(field, index);
-}
-
-
-template <typename T>
-std::map<int, std::vector<T>> PioInterface::getField2D(const char *field) {
-  std::map<int, std::vector<T>> data;
-  int w = getFieldWidth(field);
-  for ( int i = 1; i<=w; i++ ) {
-    data[i-1] = pd->variable<T>(field, i);
-  }
-  return data;
-}
-
 template <class T> const T *PioInterface::getUniqMap(const T *field) {
   T *fRet = new T[nCell_];
 
@@ -401,8 +354,7 @@ std::vector<std::string> PioInterface::getFieldNames() {
   return pd->arrayOrder;
 }
 
-
-#ifdef DOMAIN
+#ifdef DOPIOMAIN
 int main(int argc, const char **argv) {
   PioInterface a(argv[1], 0, 0);
   int ndim = a.nDim();
