@@ -294,4 +294,6 @@ if __name__ == "__main__":
         print(p.names[b'cell_center_1'])
         c = p.readArray(b'cell_center_1')
         print(c[1:10])
+        for x in p.arrayOrder:
+            print(x)
 
