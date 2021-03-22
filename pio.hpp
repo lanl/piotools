@@ -73,15 +73,19 @@ public:
   PIOHeader header() {return header_;}
   int ndim() {return ndim_;}
   int numcell() {return numcell_;}
-  template <typename T>
   
-  std::vector<T> variable(std::string name, int index=0) {
-    auto base = variable(name, index);
-    return std::vector<T>(base.begin(), base.end());
-  }
-
-  std::vector<double> variable(std::string name, int index=0) {
+  std::vector<double> variableRead(std::string name, int index=0) {
     return readArray(name+"_"+std::to_string(index));
+  }
+  
+  std::vector<double> variable(std::string name, int index=0) {
+    return variableRead(name, index);
+  }
+  
+  template <typename T>
+  std::vector<T> variable(std::string name, int index=0) {
+    auto base = variableRead(name, index);
+    return std::vector<T>(base.begin(), base.end());
   }
       
   std::vector<double> readArray(std::string name) {
