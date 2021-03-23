@@ -21,7 +21,7 @@
 
 void PioInterface::listFields(FILE *fp) { //< lists fields in the file
   std::vector<std::string> names = pd->arrayOrder;
-  for ( auto& n : names) {
+  for (auto &n : names) {
     fprintf(fp, "%s\n", n.c_str());
   }
   return;
@@ -92,7 +92,6 @@ void PioInterface::deleteArray(const T **field, const int n) {
   delete[] field;
 }
 
-
 void PioInterface::updateIMap() {
   // returns a two dimensional array with a map of which cells are
   // leaf cells at any given level.  The level with index 0 contains
@@ -137,8 +136,8 @@ void PioInterface::releaseMapByLevel() {
 }
 
 void PioInterface::updateNLevel() { // Finds out how many levels we have by
-                                     // inspecting
-                                     // cell_level variable
+                                    // inspecting
+                                    // cell_level variable
   nLevel_ = 0;
   for (int64_t i = 0; i < nCell_; i++) {
     nLevel_ = (nLevel_ < (int64_t)level_[i] ? level_[i] : nLevel_);
@@ -258,11 +257,11 @@ PioInterface::getMaterialVariable(const char *field) {
     rMap[i] = std::vector<double>(nCell_, 0.0);
   }
 
-  if (nMat() == 1 ) {
-    memcpy(rMap[1].data(),data.data(), nCell_*sizeof(double));
+  if (nMat() == 1) {
+    memcpy(rMap[1].data(), data.data(), nCell_ * sizeof(double));
     return rMap;
   }
-		      
+
   // cycle through cells and fill in fields
   int64_t idx = 0;
   for (int64_t icell = 0; icell < nCell_; icell++) {
@@ -280,10 +279,8 @@ PioInterface::getMaterialVariable(const char *field) {
 }
 
 // initializer takes dump file name and request for unique ids
-PioInterface::PioInterface(const char *name, const int uniq,
-                             const int verbose)
-    : uniqMap_(nullptr), dXyz_(nullptr), iMap(nullptr),
-      verbose_(verbose) {
+PioInterface::PioInterface(const char *name, const int uniq, const int verbose)
+    : uniqMap_(nullptr), dXyz_(nullptr), iMap(nullptr), verbose_(verbose) {
   // initializes a class from file name and request for unique map
   try {
     uniq_ = uniq;
@@ -361,9 +358,9 @@ int main(int argc, const char **argv) {
   a.listFields(stdout);
   auto center = a.center();
   std::cout << std::endl << "____________CENTERS________________" << std::endl;
-  for ( int i=0; i<10; i++){
-    std::cout << i << ":" ;
-    for(int j=0; j<ndim; j++) {
+  for (int i = 0; i < 10; i++) {
+    std::cout << i << ":";
+    for (int j = 0; j < ndim; j++) {
       std::cout << " " << center[j][i];
     }
     std::cout << std::endl;
