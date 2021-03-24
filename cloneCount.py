@@ -37,11 +37,7 @@ if len(sys.argv) != 3:
 
 p = pio(sys.argv[1])
 nprocs = int(sys.argv[2])
-ndim = 1
-if b"cell_center_3" in p.names:
-    ndim = 3
-elif b"cell_center_2" in p.names:
-    ndim = 2
+ndim = p.ndim
 
 dtr = p.readArray(b"cell_daughter_0")
     
@@ -85,8 +81,7 @@ for i in range(nprocs):
         if dtr[j] > 0:
             continue
         n = nbrs[j]
-        if ( any(n == j) or
-             any(n >= nEnd+1) or
+        if ( any(n >= nEnd) or
              any(n < nStart)):
             nClones += 1
 
