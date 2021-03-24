@@ -13,6 +13,10 @@
 ========================================================================================
 
 A simple class to read and manipulate PIO files.
+
+Author: Sriram Swaminarayan (sriram@lanl.gov)
+Date: March 17, 2021
+Version: 1.0
 """
 from __future__ import print_function
 import numpy as np
@@ -20,28 +24,32 @@ import struct
 
 class pio:
     """
-    Author: Sriram Swaminarayan (sriram@lanl.gov)
-    Date: March 17, 2021
-    Version: 1.0
 
     This class will read PIO files and allow minimal manipulation.
     It is expected that other scripts will build on the PIO class
     to do heavy-duty lifting.
+
+    Author: Sriram Swaminarayan (sriram@lanl.gov)
+    Date: March 17, 2021
+    Version: 1.0
+
     """
 
-    def __init__(self, theFile):
+    def __init__(self, theFile, verbose=0):
         """
         Initializes a PIO class and returns a PIO object.
         Argument is the PIO file to be read.
         """
-
+        self.verbose = verbose
+        
         self.fp = open(theFile, mode="rb")
 
         self.offset = 0
 
         # read signature
         s = self.str(8)
-        print(f"  File type is: {s}")
+        if self.verbose:
+            print(f"  File type is: {s}")
         if not s.lower() == b"pio_file":
             raise ValueError("Invalid file type")
 
@@ -52,7 +60,8 @@ class pio:
 
         # read version
         self.version = self.ints()
-        print(f"version={self.version}")
+        if self.verbose:
+            print(f"version={self.version}")
 
         # read element lengths
         self.lName = self.ints()
@@ -61,7 +70,8 @@ class pio:
 
         # read data/time
         self.date = self.str(16)
-        print(self.date)
+        if self.verbose:
+            print(self.date)
 
         # read number of variables and index location
         self.n = self.ints()
@@ -73,7 +83,8 @@ class pio:
          # read the variable index
         self.names = {}
         self.xnames = []
-        print('position=',self.position)
+        if self.verbose:
+            print('position=',self.position)
         self.seek(self.position)
         for i in range(int(self.n)):
             hdf = self.readArrayHeader()
@@ -163,7 +174,8 @@ class pio:
             buf.tofile(outfp)
             written += bufsize
             left -= bufsize
-            print(f"{0.95*(100.*written)/sz:.2f}%  written ")
+            if self.verbose:
+                print(f"{0.95*(100.*written)/sz:.2f}%  written ")
         self.outOffset += sz
 
     def addCellArray(self, name, copyFrom=b"pres_0"):
@@ -184,7 +196,8 @@ class pio:
         b = cch["bytes"]
         o = self.lName
         cch["bytes"] = longName + bytes(np.array([0, self.numcell, self.position, 0], dtype='double'))
-        print(cch["bytes"], len(cch["bytes"]))
+        if self.verbose:
+            print(cch["bytes"], len(cch["bytes"]))
         self.position += self.numcell
         self.n += 1
         self.names[name + "_0"] = cch
