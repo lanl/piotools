@@ -95,6 +95,13 @@ class pio:
         cch = self.names[b"cell_center_1"]
         self.numcell = int(cch["length"])
         self.outOffset = -1
+        if b"cell_center_3" in self.names:
+            self.ndim = 3
+        elif b"cell_center_2" in self.names:
+            self.ndim = 2
+        else:
+            self.ndim = 1
+
 
     def writeHeader(self, fp):
         """
