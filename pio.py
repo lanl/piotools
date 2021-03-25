@@ -225,7 +225,7 @@ class pio:
         data = self.doubles(hdr["length"], force=True)
         return data
 
-    def readArrayRange(self, name, iStart, N, force=False):
+    def readArrayRange(self, name, iStart, N, force=False, ints=False):
         """
         Reads N entries from given array starting at iStart
         Returns it as an array of doubles.
@@ -236,7 +236,10 @@ class pio:
             return None
         hdr = self.names[name]
         self.seek(hdr["offset"]+iStart)
-        data = self.doubles(N, force=True)
+        if ints:
+            data = self.ints(N, force=True)
+        else:
+            data = self.doubles(N, force=True)
         return data
 
     def readArrayHeader(self):
