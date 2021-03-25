@@ -41,7 +41,7 @@ class pio:
         Argument is the PIO file to be read.
         """
         self.verbose = verbose
-        
+
         self.fp = open(theFile, mode="rb")
 
         self.offset = 0
@@ -124,12 +124,12 @@ class pio:
         `newData` to the PIO file and writes it to file named
         `outname`.
         """
-        
+
         # now add in a new array
         self.oldPosition = self.position
-        
+
         self.addCellArray(newName)
-        
+
         with open(outName, "wb") as ofp:
             # write the header
             self.writeHeader(ofp)
@@ -146,7 +146,7 @@ class pio:
 
             ofp.close()
         self.outOffset = -1
-        
+
 
     def writeIndex(self, outfp):
         """
@@ -156,7 +156,7 @@ class pio:
         for x in self.xnames:
             outfp.write(x["bytes"])
             self.outOffset += self.lIndex
-            
+
     def copyToOffset(self, outfp, offsetStart, offsetEnd):
         """
         Copies data verbatim from self.fp to outfp from
@@ -215,7 +215,7 @@ class pio:
         """
         Reads given array from the file and
         returns it as an array of doubles.
-        
+
         Returns None if array is not found.
         """
         if name not in self.names:
@@ -223,6 +223,20 @@ class pio:
         hdr = self.names[name]
         self.seek(hdr["offset"])
         data = self.doubles(hdr["length"], force=True)
+        return data
+
+    def readArrayRange(self, name, iStart, N, force=False):
+        """
+        Reads N entries from given array starting at iStart
+        Returns it as an array of doubles.
+
+        Returns None if array is not found.
+        """
+        if name not in self.names:
+            return None
+        hdr = self.names[name]
+        self.seek(hdr["offset"]+iStart)
+        data = self.doubles(N, force=True)
         return data
 
     def readArrayHeader(self):
@@ -243,7 +257,7 @@ class pio:
             "offset": offset,
             "bytes": data,
         }
-    
+
     def copyArrayHeader(self, src):
         """ Returns a copy of the array header """
         ret = {}
@@ -272,7 +286,7 @@ class pio:
         """
         Reads count doubles from the input file.
         If count == 1 and force is False, then it will
-        return scalars.  
+        return scalars.
         """
         count = int(count)
         if offset is not None:
@@ -287,7 +301,7 @@ class pio:
         """
         Reads count doubles from the input file and returns as ints.
         If count == 1 and force is False, then it will
-        return scalars.  
+        return scalars.
         """
         count = int(count)
         if offset is not None:
