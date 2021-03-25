@@ -33,20 +33,23 @@ void PioInterface::updateDXyz() {
   const int inbr[3] = {1, 2,
                        4}; /* the already known level 1 neighbor information */
 
-  dXyz_ = new xyz_t[nLevel_ + 1];
+  dXyz_ = new double*[nLevel_ + 1];
+
   for (int l = 0; l <= nLevel_; l++) {
-    for (int d = 0; d < 3; d++)
-      dXyz_[l].xyz[d] = 1.0;
+    dXyz_[l] = new double[3];
+    for (int d = 0; d < 3; d++) {
+      dXyz_[l][d] = 1.0;
+    }
   }
 
   /* compute level 1 from known neighbors */
   for (int d = 0; d < nDim_; d++)
-    dXyz_[1].xyz[d] = 0.5 * (center_[d][inbr[d]] - center_[d][0]);
+    dXyz_[1][d] = 0.5 * (center_[d][inbr[d]] - center_[d][0]);
 
   /* compute the rest of the levels from level 1 */
   for (int l = 2; l <= nLevel_; l++) {
     for (int d = 0; d < nDim_; d++) {
-      dXyz_[l].xyz[d] = 0.5 * dXyz_[l - 1].xyz[d];
+      dXyz_[l][d] = 0.5 * dXyz_[l - 1][d];
     }
   }
   return;
@@ -149,6 +152,9 @@ PioInterface::~PioInterface() { //< our destructor!
     delete pd;
   if (uniqMap_)
     delete[] uniqMap_;
+  for (int64_t i = 0; i <= nLevel_; i++) {
+    delete[] dXyz_[i];
+  }
   delete[] dXyz_;
   if (iMap)
     releaseMapByLevel();
@@ -184,7 +190,7 @@ void PioInterface::updateUniqMap() {
   /** allocate temporary space for our IDs **/
   i2_t *i2 = new i2_t[nCell_];
   int64_t nMax[nDim_];
-  const double *dxyz = dXyz_[nLevel_].xyz;
+  const double *dxyz = dXyz_[nLevel_];
   const double scale = (double)(1 << nLevel_);
   int64_t(*idxyz)[3] = new int64_t[nCell_][3];
   //  for(int d=0; d<nDim_; d++) idxyz[d] = new int64_t [nCell_];
@@ -219,7 +225,7 @@ void PioInterface::updateUniqMap() {
 
   /** free data **/
   delete[] i2;
-  //  for(int d=0; d<nDim_; d++) delete[] idxyz.xyz[d];
+  //  for(int d=0; d<nDim_; d++) delete[] idxyz[d];
   delete[] idxyz;
 
   return;

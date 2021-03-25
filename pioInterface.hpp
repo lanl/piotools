@@ -26,10 +26,6 @@
 
 #include "pio.hpp"
 
-typedef struct xyz_t {
-  double xyz[3];
-} xyz_t;
-
 typedef struct i2_t {
   int64_t id;
   int64_t index;
@@ -49,7 +45,7 @@ private:
   std::vector<int64_t> daughter_; //< daughter of each cell [nCell]
   std::map<int, std::vector<double>>
       center_;                        //< center of each cell [nDim][nCell]
-  xyz_t *dXyz_;                       //< cell size at each level [nLevel]
+  double **dXyz_;                     //< cell size at each level [nLevel]
   int64_t **iMap;                     //< mapping of cells by level
   PIO *pd;                            //< PIO data struct for dmp file
   int64_t nMat_;                      //< Number of materials
@@ -76,7 +72,7 @@ public:
   int nMat() { return nMat_; }
   int64_t nCell() { return nCell_; }
   int nLevel() { return nLevel_; }
-  const xyz_t *dXyz() { return dXyz_; }
+  double **dXyz() { return dXyz_; }
   const int64_t *uniqMap() { return (const int64_t *)uniqMap_; }
 
   std::map<int, std::vector<double>> &center() { return center_; }
