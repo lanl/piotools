@@ -83,7 +83,7 @@ def CloneInfo(f, verbose=False):
             nMother += 1
             continue
         for x in nbrs[i]:
-            if x < 1 or x == i or procid[x] != myProc:
+            if x < 0 or x == i or procid[x] != myProc:
                 nClones += 1
 
     return {
