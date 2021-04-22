@@ -81,7 +81,7 @@ for i in range(nprocs):
     for j in range(nStart, nEnd):
         if dtr[j] > 0:
             continue
-         n = nbrs[j]
+        n = nbrs[j]
         for k in n:
             if k > nEnd or k < nStart or k == j:
                 nClones += 1
