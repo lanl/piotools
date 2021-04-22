@@ -33,7 +33,7 @@ void PioInterface::updateDXyz() {
   const int inbr[3] = {1, 2,
                        4}; /* the already known level 1 neighbor information */
 
-  dXyz_ = new double*[nLevel_ + 1];
+  dXyz_ = new double *[nLevel_ + 1];
 
   for (int l = 0; l <= nLevel_; l++) {
     dXyz_[l] = new double[3];

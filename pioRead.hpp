@@ -3,7 +3,7 @@
 
 struct PIOHeader {
   char[8] filetype;
-  double  two;
+  double two;
   double version;
   double lengthName;
   double lengthHeader;
@@ -15,9 +15,9 @@ struct PIOHeader {
 };
 
 class PIO {
-  public
+public
   PIO(std::string filename) {
-    fp = fopen(filename,"wb");
+    fp = fopen(filename, "wb");
     auto iRead = fread(&header, sizeof(PIOHeader), 1, fp);
     std::cout << header.filetype << std::endl;
     std::cout << header.two << std::endl;
@@ -30,9 +30,7 @@ class PIO {
     std::cout << header.offsetIndex << std::endl;
     std::cout << header.signature << std::endl;
   }
-  ~PIO() {
-    fclose(fp);
-  }
+  ~PIO() { fclose(fp); }
   PIOHeader header;
   FILE *fp;
 };
