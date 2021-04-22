@@ -22,6 +22,7 @@ from __future__ import print_function
 import numpy as np
 import struct
 
+
 class pio:
     """
 
@@ -80,11 +81,11 @@ class pio:
         # read file signature
         self.signature = self.ints()
 
-         # read the variable index
+        # read the variable index
         self.names = {}
         self.xnames = []
         if self.verbose:
-            print('position=',self.position)
+            print("position=", self.position)
         self.seek(self.position)
         for i in range(int(self.n)):
             hdf = self.readArrayHeader()
@@ -102,7 +103,6 @@ class pio:
         else:
             self.ndim = 1
 
-
     def writeHeader(self, fp):
         """
         Writes PIO header to the file pointer sent.
@@ -115,7 +115,7 @@ class pio:
         ).tofile(fp)
         fp.write(self.date)
         np.array([self.n, self.position, self.signature], dtype="double").tofile(fp)
-        np.zeros((self.lHeader-11), dtype='double').tofile(fp)
+        np.zeros((self.lHeader - 11), dtype="double").tofile(fp)
         self.outOffset = self.lHeader
 
     def writeWithNewCellArray(self, outName, newName, newData):
@@ -146,7 +146,6 @@ class pio:
 
             ofp.close()
         self.outOffset = -1
-
 
     def writeIndex(self, outfp):
         """
@@ -202,7 +201,9 @@ class pio:
         cch["offset"] = self.lIndex
         b = cch["bytes"]
         o = self.lName
-        cch["bytes"] = longName + bytes(np.array([0, self.numcell, self.position, 0], dtype='double'))
+        cch["bytes"] = longName + bytes(
+            np.array([0, self.numcell, self.position, 0], dtype="double")
+        )
         if self.verbose:
             print(cch["bytes"], len(cch["bytes"]))
         self.position += self.numcell
@@ -250,7 +251,7 @@ class pio:
         if name not in self.names:
             return None
         hdr = self.names[name]
-        self.seek(hdr["offset"]+iStart)
+        self.seek(hdr["offset"] + iStart)
         if ints:
             data = self.ints(N, force=True)
         else:
@@ -265,9 +266,9 @@ class pio:
         start = self.offset
         data = self.str(8 * self.lIndex)
         name = data[:x]
-        index = int(struct.unpack('d',data[x:x+8])[0])
-        length = int(struct.unpack('d',data[x+8:x+16])[0])
-        offset = int(struct.unpack('d',data[x+16:x+24])[0])
+        index = int(struct.unpack("d", data[x : x + 8])[0])
+        length = int(struct.unpack("d", data[x + 8 : x + 16])[0])
+        offset = int(struct.unpack("d", data[x + 16 : x + 24])[0])
         return {
             "name": name,
             "index": index,
@@ -297,7 +298,7 @@ class pio:
         s = self.fp.read(count)
 
         # offset is counted in doubles
-        self.offset += int(count/8)
+        self.offset += int(count / 8)
         return s
 
     def doubles(self, count=1, offset=None, force=False):
@@ -334,18 +335,20 @@ class pio:
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) < 2:
-        print(f"""
+        print(
+            f"""
         {sys.argv[0]} takes at least one argument.
-        """)
+        """
+        )
     else:
         filename = sys.argv[1]
         p = pio(filename)
-        print('number of cells = ',p.numcell)
+        print("number of cells = ", p.numcell)
         print(p.names.keys())
-        print(p.names[b'cell_center_1'])
-        c = p.readArray(b'cell_center_1')
+        print(p.names[b"cell_center_1"])
+        c = p.readArray(b"cell_center_1")
         print(c[1:10])
         for x in p.arrayOrder:
             print(x)
-

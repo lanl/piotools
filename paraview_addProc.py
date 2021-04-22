@@ -8,7 +8,6 @@ array.SetNumberOfTuples(input.GetNumberOfCells())
 procID = numpy.load("/tmp/proc.npz")["procID"]
 print(len(procID))
 for i in range(input.GetNumberOfCells()):
-  array.SetTuple1(i, procID[i])
+    array.SetTuple1(i, procID[i])
 output.GetCellData().AddArray(array)
 print(input.GetNumberOfCells())
-

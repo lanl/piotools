@@ -33,8 +33,10 @@ import os
 import sys
 import numpy as np
 
+
 def usage():
-    print(f"""
+    print(
+        f"""
     **************************************************************
     Usage: python3 {sys.argv[0]} <input-dmp######> [outbase=tmp]
     **************************************************************
@@ -48,35 +50,37 @@ def usage():
       Appends a new cell array called 'processor_id' to a PIO file. 
       thatcontains the MPI processor ID on which that cell resided
     **************************************************************
-    """)    
+    """
+    )
+
+
 class pio:
-    def __init__(self, theFile, outbase='tmp'):
+    def __init__(self, theFile, outbase="tmp"):
         self.offset = 0
-        outfile = outbase+'-dmp000000'
+        outfile = outbase + "-dmp000000"
         if os.path.exists(outfile):
             print(f"\n\n  *** File {outfile} exists, will not proceed. ***\n\n")
             return None
-        self.fp = open(theFile, mode='rb')
-        
+        self.fp = open(theFile, mode="rb")
+
         # read signature
         s = self.str(8)
-        print(f'  File type is: {s}')
-        if not s.lower() == b'pio_file':
-            raise ValueError('invalid file type')
+        print(f"  File type is: {s}")
+        if not s.lower() == b"pio_file":
+            raise ValueError("invalid file type")
 
         # Ensure second value is two
         d = self.double()
         if d != 2.0:
-            raise ValueError('second value is not 2')
-        
+            raise ValueError("second value is not 2")
+
         # read version
         self.version = self.int64()
-        print(f'version={self.version}')
+        print(f"version={self.version}")
 
         self.lName = self.int64()
         self.lHeader = self.int64()
         self.lIndex = self.int64()
-
 
         self.date = self.str(16)
         print(self.date)
@@ -84,70 +88,65 @@ class pio:
         self.n = self.int64()
         self.position = self.int64()
         self.signature = self.int64()
-        
-        print(f'numvars={self.n}, offsetindex={8*self.position}')
-        
+
+        print(f"numvars={self.n}, offsetindex={8*self.position}")
+
         # seek to end of header
 
         # read the name
-        self.names={}
+        self.names = {}
         self.xnames = []
-        offset = int(8*self.position)
+        offset = int(8 * self.position)
         self.seek(offset)
         for i in range(int(self.n)):
             hdf = self.arrayHeader()
-            idx = hdf['name'] + b'_%d'%hdf['index']
+            idx = hdf["name"] + b"_%d" % hdf["index"]
             self.names[idx] = hdf
             self.xnames.append(hdf)
-            
-        cch = self.names[b'cell_center_1']
-        self.numcell = int(cch['length'])
-        
-        print(f'__________NUMCELL={self.numcell}')
+
+        cch = self.names[b"cell_center_1"]
+        self.numcell = int(cch["length"])
+
+        print(f"__________NUMCELL={self.numcell}")
 
         # Write the new dump file
         self.writeNewArray(outfile)
 
         # Write the Paraview file
-        with open(outbase+'.pio','w') as ofp:
-            ofp.writelines(
-                ["DUMP_DIRECTORY .\n",
-                 "DUMP_BASE_NAME tmp\n"]
-                )
-        
+        with open(outbase + ".pio", "w") as ofp:
+            ofp.writelines(["DUMP_DIRECTORY .\n", "DUMP_BASE_NAME tmp\n"])
+
     def writeNewArray(self, outName):
         # now add in a new array
         self.oldPosition = self.position
-        self.addCellArray('processor_id')
-        newData = np.zeros(self.numcell,dtype='double')
-        gnh = self.names[b'global_numcell_0']
-        data = self.readArray(b'global_numcell_0')
+        self.addCellArray("processor_id")
+        newData = np.zeros(self.numcell, dtype="double")
+        gnh = self.names[b"global_numcell_0"]
+        data = self.readArray(b"global_numcell_0")
         lastIdx = 0
         for i in range(len(data)):
             nextIdx = lastIdx + int(data[i])
             newData[lastIdx:nextIdx] = i
             lastIdx = nextIdx
-            
-        with open(outName,'wb') as ofp:
+
+        with open(outName, "wb") as ofp:
             self.ofp = ofp
             # write the header
-            
-            ofp.write(b'pio_file')
-            np.array([2.0,
-                      self.version,
-                      self.lName,
-                      self.lHeader,
-                      self.lIndex],
-                     dtype='double').tofile(ofp)
+
+            ofp.write(b"pio_file")
+            np.array(
+                [2.0, self.version, self.lName, self.lHeader, self.lIndex],
+                dtype="double",
+            ).tofile(ofp)
             ofp.write(self.date)
-            np.array([self.n, self.position],dtype='double').tofile(ofp)
-            
+            np.array([self.n, self.position], dtype="double").tofile(ofp)
+
             # copy rest of file till new data position
-            self.copyToOldIndex(ofp,10)
-            
+            self.copyToOldIndex(ofp, 10)
+
             # write new data to file
             newData.tofile(ofp)
-            
+
             # write trailer
             self.writeTrailer(ofp)
 
@@ -155,14 +154,13 @@ class pio:
 
     def writeTrailer(self, outfp):
         for i in range(self.n):
-            outfp.write(self.xnames[i]['bytes'])
-            
+            outfp.write(self.xnames[i]["bytes"])
 
     def doubleBytes(self, value):
-        return bytes(np.array(value,dtype='double'))
-        
-    def copyToOldIndex(self,outfp, offset):
-        self.seek(8*offset)
+        return bytes(np.array(value, dtype="double"))
+
+    def copyToOldIndex(self, outfp, offset):
+        self.seek(8 * offset)
         sz = self.oldPosition - offset
         bufsize = self.numcell
         read = 0
@@ -174,21 +172,21 @@ class pio:
             buf.tofile(outfp)
             read += bufsize
             left -= bufsize
-            print(f'{0.95*(100.*read)/sz:.2f}%  written ')
+            print(f"{0.95*(100.*read)/sz:.2f}%  written ")
 
     def addCellArray(self, name):
-        cch = self.copyHeader(self.names[b'cell_center_1'])
-        fmt = '%%-%ds'%self.lName
-        cch['name'] = bytes(name,'utf8')
-        longName = bytes(fmt%name,'utf8')
-        cch['offset'] = self.lIndex
-        b = cch['bytes']
+        cch = self.copyHeader(self.names[b"cell_center_1"])
+        fmt = "%%-%ds" % self.lName
+        cch["name"] = bytes(name, "utf8")
+        longName = bytes(fmt % name, "utf8")
+        cch["offset"] = self.lIndex
+        b = cch["bytes"]
         o = self.lName
-        cch['bytes'] = longName + self.doubleBytes([0, self.numcell, self.position, 0])
-        print(cch['bytes'], len(cch['bytes']))
+        cch["bytes"] = longName + self.doubleBytes([0, self.numcell, self.position, 0])
+        print(cch["bytes"], len(cch["bytes"]))
         self.position += self.numcell
         self.n += 1
-        self.names[name+'_0'] = cch
+        self.names[name + "_0"] = cch
         self.xnames.append(cch)
         return
 
@@ -196,11 +194,11 @@ class pio:
         if name not in self.names:
             return None
         hdr = self.names[name]
-        self.seek(int(hdr['offset']))
-        data = self.double(hdr['length'],force=True)
-        print('return:',data)
+        self.seek(int(hdr["offset"]))
+        data = self.double(hdr["length"], force=True)
+        print("return:", data)
         return data
-    
+
     def arrayHeader(self, offset=None):
         """
         reads array at current header
@@ -209,13 +207,19 @@ class pio:
         name = self.str(self.lName).strip()
         index = self.int64()
         length = self.int64()
-        offset = 8*self.int64()
+        offset = 8 * self.int64()
         self.seek(start)
-        data = self.str(8*self.lIndex)
-        return {'name':name, 'index':index, 'length':length, 'offset':offset, 'bytes':data}
+        data = self.str(8 * self.lIndex)
+        return {
+            "name": name,
+            "index": index,
+            "length": length,
+            "offset": offset,
+            "bytes": data,
+        }
         # return {'name':name, 'index':index, 'length':length, 'offset':offset}
-        
-    def copyHeader(self,src):
+
+    def copyHeader(self, src):
         ret = {}
         for x in src:
             ret[x] = src[x]
@@ -238,30 +242,30 @@ class pio:
         count = int(count)
         if offset is not None:
             self.seek(offset)
-        value = np.fromfile(self.fp, dtype='double', count=count)
+        value = np.fromfile(self.fp, dtype="double", count=count)
         if count == 1 and (not force):
             return value[0]
         return value
-            
+
     def int64(self, count=1, offset=None, force=False):
         count = int(count)
         if offset is not None:
             self.seek(offset)
-        raw = np.fromfile(self.fp, dtype='double', count=count)
+        raw = np.fromfile(self.fp, dtype="double", count=count)
         if count == 1 and (not force):
             return int(raw[0])
-        
+
         value = [int(x) for x in raw]
         return value
-            
+
 
 if __name__ == "__main__":
-    if (len(sys.argv) > 3) or (len(sys.argv) <2):
-          usage()
+    if (len(sys.argv) > 3) or (len(sys.argv) < 2):
+        usage()
     else:
         filename = sys.argv[1]
         try:
             outbase = sys.argv[2]
         except:
-            outbase = 'tmp'
+            outbase = "tmp"
         p = pio(filename, outbase)

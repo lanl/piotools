@@ -34,8 +34,10 @@ import numpy as np
 import os
 import sys
 
+
 def usage():
-    print(f"""
+    print(
+        f"""
     **************************************************************
     Usage: python3 {sys.argv[0]} <input-dmp######> [outbase=tmp]
     **************************************************************
@@ -49,11 +51,12 @@ def usage():
       Appends a new cell array called 'processor_id' to a PIO file. 
       thatcontains the MPI processor ID on which that cell resided
     **************************************************************
-    """)
+    """
+    )
 
 
-if (len(sys.argv) > 3) or (len(sys.argv) <2):
-      usage()
+if (len(sys.argv) > 3) or (len(sys.argv) < 2):
+    usage()
 else:
     # input file
     filename = sys.argv[1]
@@ -62,27 +65,24 @@ else:
     try:
         outbase = sys.argv[2]
     except:
-        outbase = 'tmp'
+        outbase = "tmp"
 
     # Ensure that outfile doesn't already exist
-    outfile = outbase + '-dmp000000'
+    outfile = outbase + "-dmp000000"
     if os.path.exists(outfile):
         print(f"\n\n  *** File {outfile} exists, will not proceed. ***\n\n")
         exit(1)
 
     # Read in the dump file metadata
     p = pio(filename)
-    
+
     # Write the Paraview file
-    with open(outbase+'.pio','w') as ofp:
-        ofp.writelines(
-            ["DUMP_DIRECTORY .\n",
-             f"DUMP_BASE_NAME {outbase}\n"]
-            )
-        
+    with open(outbase + ".pio", "w") as ofp:
+        ofp.writelines(["DUMP_DIRECTORY .\n", f"DUMP_BASE_NAME {outbase}\n"])
+
     # Create processor ID array
-    newData = np.zeros(p.numcell,dtype='double')
-    data = p.readArray(b'global_numcell_0')
+    newData = np.zeros(p.numcell, dtype="double")
+    data = p.readArray(b"global_numcell_0")
     lastIdx = 0
     for i in range(len(data)):
         nextIdx = lastIdx + int(data[i])
@@ -91,5 +91,3 @@ else:
 
     # Write new file with processor id included
     p.writeWithNewCellArray(outfile, "processor_id", newData)
-
-            

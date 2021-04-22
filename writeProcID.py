@@ -34,8 +34,10 @@ import numpy as np
 import os
 import sys
 
+
 def usage():
-    print(f"""
+    print(
+        f"""
     **************************************************************
     Usage: python3 {sys.argv[0]} <input-dmp######> [outbase=tmp]
     **************************************************************
@@ -49,11 +51,12 @@ def usage():
       Appends a new cell array called 'processor_id' to a PIO file. 
       thatcontains the MPI processor ID on which that cell resided
     **************************************************************
-    """)
+    """
+    )
 
 
-if (len(sys.argv) > 3) or (len(sys.argv) <2):
-      usage()
+if (len(sys.argv) > 3) or (len(sys.argv) < 2):
+    usage()
 else:
     # input file
     filename = sys.argv[1]
@@ -62,22 +65,20 @@ else:
     try:
         outbase = sys.argv[2]
     except:
-        outbase = 'tmp'
-
+        outbase = "tmp"
 
     # Read in the dump file metadata
     p = pio(filename)
-    
-        
+
     # Create processor ID array
-    procID = np.zeros(p.numcell,dtype='int')
-    print('numcell=',p.numcell)
-    data = p.readArray(b'global_numcell_0')
-    dtr = p.readArray(b'cell_daughter_0')
+    procID = np.zeros(p.numcell, dtype="int")
+    print("numcell=", p.numcell)
+    data = p.readArray(b"global_numcell_0")
+    dtr = p.readArray(b"cell_daughter_0")
     lastIdx = 0
     ncell = 0
     id = 0
-    delta = p.numcell/10;
+    delta = p.numcell / 10
     print("processing PE info")
     for i in range(len(data)):
         nextIdx = lastIdx + int(data[i])
@@ -92,8 +93,8 @@ else:
     print("")
 
     print(f"  Writing {ncell} entries to disk")
-    #with open('/tmp/xxx.bin','wb') as fp:
-    np.resize(procID,ncell)
-    np.savez_compressed('/tmp/proc.npz', procID=procID)
-    xxx = np.load('/tmp/proc.npz')
-    print('written cells = ',xxx['procID'].size)
+    # with open('/tmp/xxx.bin','wb') as fp:
+    np.resize(procID, ncell)
+    np.savez_compressed("/tmp/proc.npz", procID=procID)
+    xxx = np.load("/tmp/proc.npz")
+    print("written cells = ", xxx["procID"].size)
