@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 ========================================================================================
  (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
@@ -40,22 +41,22 @@ nprocs = int(sys.argv[2])
 ndim = p.ndim
 
 dtr = p.readArray(b"cell_daughter_0")
-    
+
 numcell = p.numcell
 nbrs = np.empty([numcell, 2 * ndim])
 for i in range(ndim):
-    print("processing neighbors in direction",i)
+    print("processing neighbors in direction", i)
     idx = 2 * i + 1
-    nl = p.readArray(b"cell_index_%1d"%(idx))
-    nh = p.readArray(b"cell_index_%1d"%(idx+1))
+    nl = p.readArray(b"cell_index_%1d" % (idx))
+    nh = p.readArray(b"cell_index_%1d" % (idx + 1))
     for k in range(numcell):
-        nbrs[k,idx-1] = nl[k]-1
-        nbrs[k,idx] = nh[k]-1
+        nbrs[k, idx - 1] = nl[k] - 1
+        nbrs[k, idx] = nh[k] - 1
 
 print("counting clones")
-block = int(2**ndim)
-quantum = round(float(numcell)/float(nprocs))
-remainder = quantum%block
+block = int(2 ** ndim)
+quantum = round(float(numcell) / float(nprocs))
+remainder = quantum % block
 quantum = quantum - remainder
 
 nEnd = 0
@@ -65,25 +66,25 @@ n = [0] * (2 * ndim)
 print(f"quantum={quantum}, remainder={remainder}, block={block}")
 for i in range(nprocs):
     nStart = nEnd
-    if i == nprocs-1:
+    if i == nprocs - 1:
         nEnd = numcell
     else:
         r += remainder
         if r >= block:
             offset = block
-            r = r-block
+            r = r - block
         else:
             offset = 0
         nEnd = nStart + quantum + offset
     nEnd = int(nEnd)
-    print(f'checking proc={i},s={nStart} e={nEnd} n={nEnd-nStart}')
-    for j in range(nStart,nEnd):
+    print(f"checking proc={i},s={nStart} e={nEnd} n={nEnd-nStart}")
+    for j in range(nStart, nEnd):
         if dtr[j] > 0:
             continue
-        n = nbrs[j]
-        if ( any(n >= nEnd) or
-             any(n < nStart)):
-            nClones += 1
+         n = nbrs[j]
+        for k in n:
+            if k > nEnd or k < nStart or k == j:
+                nClones += 1
 
 print(f"\n  nProcs={nprocs}, nClones={nClones}\n")
 
