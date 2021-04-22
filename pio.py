@@ -225,6 +225,21 @@ class pio:
         data = self.doubles(hdr["length"], force=True)
         return data
 
+    def readArrayInt(self, name):
+        """
+        Reads given array from the file and
+        returns it as an array of doubles.
+
+        Returns None if array is not found.
+        """
+        if name not in self.names:
+            return None
+        hdr = self.names[name]
+        print(hdr)
+        self.seek(hdr["offset"])
+        data = self.ints(hdr["length"], force=True)
+        return data
+
     def readArrayRange(self, name, iStart, N, force=False, ints=False):
         """
         Reads N entries from given array starting at iStart
