@@ -27,69 +27,51 @@ Date: March 24, 2021
 Version: 1.0
 
 """
-import sys
-import numpy as np
-from pio import pio
-from math import floor
 
-if len(sys.argv) != 3:
-    print(f"\n\n   Usage: {sys.argv[0]} <filename> <nprocs> \n\n")
-    exit(1)
 
-p = pio(sys.argv[1])
-nprocs = int(sys.argv[2])
-ndim = p.ndim
+def cloneCount(fname, nprocs, verbose=False):
+    import numpy as np
+    from pio import pio
+    from cloneInfo import countClones
 
-dtr = p.readArray(b"cell_daughter_0")
+    p = pio(fname)
+    ndim = p.ndim
+    numcell = p.numcell
+    block = int(2 ** ndim)
+    quantum = round(float(numcell) / float(nprocs))
+    remainder = quantum % block
+    quantum = quantum - remainder
 
-numcell = p.numcell
-nbrs = np.empty([numcell, 2 * ndim])
-for i in range(ndim):
-    print("processing neighbors in direction", i)
-    idx = 2 * i + 1
-    nl = p.readArray(b"cell_index_%1d" % (idx))
-    nh = p.readArray(b"cell_index_%1d" % (idx + 1))
-    for k in range(numcell):
-        nbrs[k, idx - 1] = nl[k] - 1
-        nbrs[k, idx] = nh[k] - 1
-
-print("counting clones")
-block = int(2 ** ndim)
-quantum = round(float(numcell) / float(nprocs))
-remainder = quantum % block
-quantum = quantum - remainder
-
-nEnd = 0
-nClones = 0
-r = 0
-n = [0] * (2 * ndim)
-print(f"quantum={quantum}, remainder={remainder}, block={block}")
-for i in range(nprocs):
-    nStart = nEnd
-    if i == nprocs - 1:
-        nEnd = numcell
-    else:
-        r += remainder
-        if r >= block:
-            offset = block
-            r = r - block
+    nEnd = 0
+    nClones = 0
+    r = 0
+    n = [0] * (2 * ndim)
+    gns = [0] * nprocs
+    print(f"quantum={quantum}, remainder={remainder}, block={block}")
+    for i in range(nprocs):
+        nStart = nEnd
+        if i == nprocs - 1:
+            nEnd = numcell
         else:
-            offset = 0
-        nEnd = nStart + quantum + offset
-    nEnd = int(nEnd)
-    print(f"checking proc={i},s={nStart} e={nEnd} n={nEnd-nStart}")
-    for j in range(nStart, nEnd):
-        if dtr[j] > 0:
-            continue
-        n = nbrs[j]
-        for k in n:
-            if k > nEnd or k < nStart or k == j:
-                nClones += 1
+            r += remainder
+            if r >= block:
+                offset = block
+                r = r - block
+            else:
+                offset = 0
+            nEnd = nStart + quantum + offset
+        nEnd = int(nEnd)
+        gns[i] = nEnd - nStart
+    return countClones(gns, p, verbose)
 
-print(f"\n  nProcs={nprocs}, nClones={nClones}\n")
 
-#
-# comment out next line if you want to check how well
-# our partitioning tracks xRage's partitionng.
-#
-# print(p.readArray(b"global_numcell_0"))
+if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) != 3:
+        print(f"\n\n   Usage: {sys.argv[0]} <filename> <nprocs> \n\n")
+        exit(1)
+    myFile = sys.argv[1]
+    myNProcs = int(sys.argv[2])
+
+    print(cloneCount(myFile, myNProcs, 1))

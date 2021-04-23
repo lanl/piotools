@@ -29,30 +29,29 @@ Version: 1.0
 """
 
 
-def CloneInfo(f, verbose=False):
+def countClones(cellsPerProc, p, verbose=False):
+    """
+    Uses the passed global_numcell instead of the one from the pio file
+    to generate clones.
+      cellsPerProc = array that is nProcs long with number of cells on each processor
+      p = PIO file class
+    """
     import numpy as np
-    from pio import pio
-    from math import floor
 
-    # open the file
-    p = pio(f)
     ndim = p.ndim
 
     # read in relevant arrays
     dtr = p.readArray(b"cell_daughter_0")
-    gns = p.readArray(b"global_numcell_0")
-    if gns is None:
-        gns = [p.numcell]
 
     if verbose:
-        print(f"nProcs={len(gns)}")
+        print(f"nProcs={len(cellsPerProc)}")
     # generate procID
     if verbose:
         print("Generating procid")
     id = 0
     procid = []
     last = int(0)
-    for x in gns:
+    for x in cellsPerProc:
         x = int(x)
         procid.extend([id] * x)
         print(f"Proc {id:>6}: {last+1:>8} - {last+x:<8}")
@@ -92,6 +91,23 @@ def CloneInfo(f, verbose=False):
         "nMother": nMother,
         "nTop": numcell - nMother,
     }
+
+
+def CloneInfo(f, verbose=False):
+    import numpy as np
+    from pio import pio
+    from math import floor
+
+    # open the file
+    p = pio(f)
+    ndim = p.ndim
+
+    # read in relevant arrays
+    dtr = p.readArray(b"cell_daughter_0")
+    gns = p.readArray(b"global_numcell_0")
+    if gns is None:
+        gns = [p.numcell]
+    return countClones(gns, p, verbose=False)
 
 
 if __name__ == "__main__":
