@@ -58,31 +58,29 @@ def countClones(cellsPerProc, p, verbose=False):
         last = len(procid)
         id += 1
 
-    numcell = p.numcell
-    nbrs = np.empty([numcell, 2 * ndim], dtype="int")
-    for i in range(ndim):
-        if verbose:
-            print("Generating neighbors in direction", i)
-        idx = 2 * i + 1
-        nl = p.readArray(b"cell_index_%1d" % (idx))
-        nh = p.readArray(b"cell_index_%1d" % (idx + 1))
-        for k in range(numcell):
-            nbrs[k, idx - 1] = int(nl[k] - 1)
-            nbrs[k, idx] = int(nh[k] - 1)
-
-    if verbose:
-        print("Neighbor generation done.")
-
     nClones = 0
     nMother = 0
+    numcell = p.numcell
     print("numcell=", p.numcell)
-    for i in range(p.numcell):
-        myProc = procid[i]
-        if dtr[i] > 0:
-            nMother += 1
-            continue
-        for x in nbrs[i]:
-            if x < 0 or x == i or procid[x] != myProc:
+    for iDir in range(ndim):
+        if verbose:
+            print("Counting Clones in direction", iDir)
+        idx = 2 * iDir + 1
+        nl = p.readArray(b"cell_index_%1d" % (idx)).astype(int) - 1
+        nh = p.readArray(b"cell_index_%1d" % (idx + 1)).astype(int) - 1
+        for i in range(numcell):
+            if dtr[i] > 0:
+                if iDir == 0:
+                    # don't double count
+                    nMother += 1
+                continue
+            myProc = procid[i]
+
+            xL = nl[i]
+            xH = nh[i]
+            if xL < 0 or xL == i or procid[xL] != myProc:
+                nClones += 1
+            if xH < 0 or xH == i or procid[xH] != myProc:
                 nClones += 1
 
     return {
