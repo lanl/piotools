@@ -113,4 +113,4 @@ if __name__ == "__main__":
 
     files = sys.argv[1:]
     for f in files:
-        print(CloneInfo(f, 1))
+        print(CloneInfo(f, 0))
