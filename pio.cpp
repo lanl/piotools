@@ -4,7 +4,7 @@
 
 static std::map<std::string, double> pmap;
 
-double writeIndex(FILE *fp, char *name, double nameLength, double index,
+double writeIndex(FILE *fp, const char *name, double nameLength, double index,
                   double length, double position) {
   // write index
   char s[static_cast<size_t>(nameLength)];

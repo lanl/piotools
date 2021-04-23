@@ -52,12 +52,15 @@ public:
   std::vector<std::string> arrayOrder;
   std::map<std::string, PIOArrayHeader> arrays;
   std::map<std::string, arrayDimensions> arrayDims;
-  PIO(std::string filename) {
+  arrayDimensions arraySize(std::string name) { return arrayDims[name]; }
+  PIO(std::string filename, int verbose = 0) {
     ndim_ = 0;
     numcell_ = 0;
     fp = fopen(filename.c_str(), "rb");
     auto iRead = fread(&header_, sizeof(PIOHeader), 1, fp);
-    printf("%8s\n", header_.filetype);
+    if (verbose > 0) {
+      printf("%8s\n", header_.filetype);
+    }
     if (strncmp(header_.filetype, "pio_file", 8)) {
       std::cout << "Unable to open file" << std::endl;
       memset(&header_, -1, sizeof(PIOHeader));
@@ -68,16 +71,17 @@ public:
       memset(&header_, -1, sizeof(PIOHeader));
       return;
     }
-    std::cout << "           two: " << header_.two << std::endl;
-    std::cout << "       version: " << header_.version << std::endl;
-    std::cout << "   Name Length: " << header_.lengthName << std::endl;
-    std::cout << " Header Length: " << header_.lengthHeader << std::endl;
-    std::cout << "  Index Length: " << header_.lengthIndex << std::endl;
-    std::cout << "          Date: " << header_.date << std::endl;
-    std::cout << "      N Arrays: " << header_.nArrays << std::endl;
-    std::cout << "  Index Offset: " << header_.position << std::endl;
-    std::cout << "File Signature: " << header_.signature << std::endl;
-
+    if (verbose > 0) {
+      std::cout << "           two: " << header_.two << std::endl;
+      std::cout << "       version: " << header_.version << std::endl;
+      std::cout << "   Name Length: " << header_.lengthName << std::endl;
+      std::cout << " Header Length: " << header_.lengthHeader << std::endl;
+      std::cout << "  Index Length: " << header_.lengthIndex << std::endl;
+      std::cout << "          Date: " << header_.date << std::endl;
+      std::cout << "      N Arrays: " << header_.nArrays << std::endl;
+      std::cout << "  Index Offset: " << header_.position << std::endl;
+      std::cout << "File Signature: " << header_.signature << std::endl;
+    }
     // Load array headers
     loadArrayHeaders();
   }
