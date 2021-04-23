@@ -1,18 +1,62 @@
 #include <iostream>
+#include <math.h>
+#include <stdlib.h>
 #include <string>
 #include <vector>
 
 #include "pio.hpp"
 
 int main(int argc, char **argv) {
+
+  // Check number of arguments
+  if (argc < 2 || argc > 3) {
+    std::cerr << std::endl
+              << "  ERROR: Usage: " << argv[0] << " <filename>  [nProcs]"
+              << std::endl
+              << std::endl;
+    return (1);
+  }
+
   PIO p(argv[1]);
   int ndim = p.ndim();
   int64_t numcell = p.numcell();
 
-  // Read in partitioning
-  int64_t nProcs = p.arraySize("global_numcell").l;
-  std::vector<int64_t> gns = p.variable<int64_t>("global_numcell");
-
+  // Generate / read in partitioning
+  int64_t nProcs;
+  std::vector<int64_t> gns;
+  if (argc > 2) {
+    // Generate partitioning
+    nProcs = (int64_t)std::stoi(argv[2]);
+    gns.resize(nProcs);
+    int64_t block = (1 << ndim);
+    int64_t quantum = round((double)(numcell) / (double)(nProcs));
+    int64_t remainder = quantum % block;
+    quantum = quantum - remainder;
+    int64_t nEnd = 0;
+    int64_t nStart = 0;
+    int64_t r = 0;
+    for (int id = 0; id < nProcs; id++) {
+      int64_t offset = 0;
+      nStart = nEnd;
+      if (id == nProcs - 1) {
+        nEnd = numcell;
+      } else {
+        r += remainder;
+      }
+      if (r >= block) {
+        offset = block;
+        r = r - block;
+      } else {
+        offset = 0;
+      }
+      nEnd = nStart + quantum + offset;
+      gns[id] = nEnd - nStart;
+    }
+  } else {
+    // Read partitioning from file
+    nProcs = p.arraySize("global_numcell").l;
+    gns = p.variable<int64_t>("global_numcell");
+  }
   // Read in daughter array
   std::vector<int64_t> dtr = p.variable<int64_t>("cell_daughter");
 
@@ -41,7 +85,9 @@ int main(int argc, char **argv) {
   for (int64_t i = 0; i < numcell; i++) {
     for (int idir = 0; idir < ndim; idir++) {
       if (dtr[i] > 0) {
-        nMother++;
+        if (idir == 0) {
+          nMother++;
+        }
         continue;
       }
       nTop++;
