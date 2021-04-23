@@ -74,4 +74,4 @@ if __name__ == "__main__":
     myFile = sys.argv[1]
     myNProcs = int(sys.argv[2])
 
-    print(cloneCount(myFile, myNProcs, 1))
+    print(cloneCount(myFile, myNProcs, 0))
