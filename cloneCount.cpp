@@ -14,7 +14,7 @@
 //========================================================================================
 
 // TO compile:
-//   g++ cloneCount.cpp -I. -o cloneCount
+//   g++ cloneCount.cpp -I. -o cloneCount -O3
 //
 // Usage: ./cloneCount <filename> [nProcs]
 //
