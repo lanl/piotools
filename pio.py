@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 ========================================================================================
  (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
@@ -322,14 +323,10 @@ class pio:
         If count == 1 and force is False, then it will
         return scalars.
         """
-        count = int(count)
-        if offset is not None:
-            self.seek(offset)
-        raw = np.fromfile(self.fp, dtype="double", count=count)
-        self.offset += count
-        if count == 1 and (not force):
-            return int(raw[0])
-        value = [int(x) for x in raw]
+        if count == 1:
+            value = int(self.doubles(count, offset, force))
+        else:
+            value = [int(x) for x in self.doubles(count, offset, force)]
         return value
 
 
