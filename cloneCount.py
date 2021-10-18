@@ -62,10 +62,13 @@ def cloneCountP(p, nprocs, verbose=False):
         gns[i] = nEnd - nStart
     return countClones(gns, p, verbose)
 
+
 def cloneCount(fname, nprocs, verbose=False):
     from pio import pio
+
     p = pio(fname)
     return cloneCountP(p, nprocs, verbose)
+
 
 if __name__ == "__main__":
     import sys

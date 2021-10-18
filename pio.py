@@ -111,8 +111,7 @@ class pio:
         self.outOffset = 0
         fp.write(b"pio_file")
         np.array(
-            [2.0, self.version, self.lName, self.lHeader, self.lIndex],
-            dtype="double",
+            [2.0, self.version, self.lName, self.lHeader, self.lIndex], dtype="double",
         ).tofile(fp)
         fp.write(self.date)
         np.array([self.n, self.position, self.signature], dtype="double").tofile(fp)
