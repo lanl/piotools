@@ -342,9 +342,6 @@ if __name__ == "__main__":
         filename = sys.argv[1]
         p = pio(filename)
         print("number of cells = ", p.numcell)
-        print(p.names.keys())
-        print(p.names[b"cell_center_1"])
-        c = p.readArray(b"cell_center_1")
-        print(c[1:10])
-        for x in p.arrayOrder:
-            print(x)
+        n = b"chunk_nummat_0"
+        c = p.readArray(n)
+        print(f'avg mat/cell = {sum(c)/len(c):.2f}')
