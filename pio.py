@@ -341,7 +341,11 @@ if __name__ == "__main__":
     else:
         filename = sys.argv[1]
         p = pio(filename)
-        print("number of cells = ", p.numcell)
+        for n in p.names:
+            print(n)
         n = b"chunk_nummat_0"
         c = p.readArray(n)
-        print(f'avg mat/cell = {sum(c)/len(c):.2f}')
+        if c is not None:
+            print(f'avg mat/cell = {sum(c)/len(c):.2f}')
+        else:
+            print(f'Array "chunk_nummat" not found in file {filename}')
