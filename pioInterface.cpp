@@ -109,10 +109,10 @@ void PioInterface::updateIMap() {
   for (int64_t i = 0; i < nCell_; i++) {
     if (daughter_[i] > 0)
       continue;
-    counts[(int64_t)level_[i]]++;
+    counts[level_[i]]++;
   }
   /* allocate space for the map */
-  for (int64_t l = 1; l <= nLevel_; l++) {
+  for (int l = 1; l <= nLevel_; l++) {
     iMap[l] = (int64_t *)calloc(counts[l], sizeof(int64_t));
     counts[l] = 0; /* we will use this as index! */
   }
@@ -121,7 +121,7 @@ void PioInterface::updateIMap() {
   for (int64_t i = 0; i < nCell_; i++) {
     if (daughter_[i] > 0)
       continue;
-    int64_t lvl = (int64_t)level_[i];
+    int lvl = level_[i];
     iMap[lvl][counts[lvl]] = i;
     counts[lvl]++;
   }
@@ -130,7 +130,7 @@ void PioInterface::updateIMap() {
 }
 
 void PioInterface::releaseMapByLevel() {
-  for (int64_t i = 0; i <= nLevel_; i++) {
+  for (int i = 0; i <= nLevel_; i++) {
     free(iMap[i]);
   }
   memset(iMap, 0xDEADBEEF, sizeof(void *));
@@ -143,7 +143,7 @@ void PioInterface::updateNLevel() { // Finds out how many levels we have by
                                     // cell_level variable
   nLevel_ = 0;
   for (int64_t i = 0; i < nCell_; i++) {
-    nLevel_ = (nLevel_ < (int64_t)level_[i] ? level_[i] : nLevel_);
+    nLevel_ = (nLevel_ < level_[i] ? level_[i] : nLevel_);
   }
 }
 PioInterface::~PioInterface() { //< our destructor!
@@ -152,7 +152,7 @@ PioInterface::~PioInterface() { //< our destructor!
     delete pd;
   if (uniqMap_)
     delete[] uniqMap_;
-  for (int64_t i = 0; i <= nLevel_; i++) {
+  for (int i = 0; i <= nLevel_; i++) {
     delete[] dXyz_[i];
   }
   delete[] dXyz_;
@@ -191,7 +191,7 @@ void PioInterface::updateUniqMap() {
   i2_t *i2 = new i2_t[nCell_];
   int64_t nMax[nDim_];
   const double *dxyz = dXyz_[nLevel_];
-  const double scale = (double)(1 << nLevel_);
+  const double scale = (double)(((int64_t)1) << nLevel_);
   int64_t(*idxyz)[3] = new int64_t[nCell_][3];
   //  for(int d=0; d<nDim_; d++) idxyz[d] = new int64_t [nCell_];
 
@@ -269,12 +269,10 @@ PioInterface::getMaterialVariable(const char *field) {
   }
 
   // cycle through cells and fill in fields
-  int64_t idx = 0;
   for (int64_t icell = 0; icell < nCell_; icell++) {
-    int64_t n = nMatPerCell_[icell];
-    for (int iMat = 0; iMat < n; iMat++, idx++) {
-      int idMat = static_cast<int>(idMatPerCell_[idx]);
-      rMap[idMat][icell] = data[idx];
+    for (int64_t indexMat = matStartIndex_[icell]; indexMat < matStartIndex_[icell+1]; indexMat++) {
+      int idMat = matIds_[indexMat];
+      rMap[idMat][icell] = data[indexMat];
     }
   }
   if (verbose_) {
@@ -301,7 +299,7 @@ PioInterface::PioInterface(const char *name, const int uniq, const int verbose)
     if (verbose) {
       std::cout << "getting levels\n";
     }
-    level_ = getField<int64_t>("cell_level");
+    level_ = getField<int>("cell_level");
     updateNLevel(); // Note this requires the level array to be gathered first
 
     if (verbose) {
@@ -319,20 +317,19 @@ PioInterface::PioInterface(const char *name, const int uniq, const int verbose)
       std::cout << "updating material information\n";
     }
     nMat_ = getFieldWidth("matdef");
-    nMatPerCell_ = getField<int64_t>("chunk_nummat");
-    idMatPerCell_ = getField<int64_t>("chunk_mat");
-    if (verbose > 10) {
-      std::cout << "number of materials =" << nMat_ << std::endl;
-      const int64_t ilen = getFieldLength("chunk_nummat");
-      int64_t idx = 0;
-      for (int64_t i = 0; i < ilen; i++) {
-        int n = nMatPerCell_[i];
-        std::cout << "cell=" << i << ":" << n << "::";
-        for (int64_t j = 0; j < n; j++, idx++) {
-          std::cout << ":" << idMatPerCell_[idx];
-        }
-        std::cout << std::endl;
+    matIds_ = getField<int>("chunk_mat");
+    matStartIndex_ = getField<int64_t>("chunk_nummat");
+    matStartIndex_.resize(nCell_ + 1);
+    {
+      // Shift the start indices
+      int64_t startIdx;
+      startIdx = 0;
+      for (int64_t i = 0; i < nCell_; i++) {
+	int64_t n = matStartIndex_[i];
+	matStartIndex_[i] = startIdx;
+	startIdx += n;
       }
+      matStartIndex_[nCell_] = startIdx;
     }
 
     if (verbose) {

@@ -52,13 +52,12 @@ public:
   std::vector<std::string> arrayOrder;
   std::map<std::string, PIOArrayHeader> arrays;
   std::map<std::string, arrayDimensions> arrayDims;
-  arrayDimensions arraySize(std::string name) { return arrayDims[name]; }
-  PIO(std::string filename, int verbose = 0) {
+  PIO(std::string filename, bool verbose = false) {
     ndim_ = 0;
     numcell_ = 0;
     fp = fopen(filename.c_str(), "rb");
     auto iRead = fread(&header_, sizeof(PIOHeader), 1, fp);
-    if (verbose > 0) {
+    if (verbose) {
       printf("%8s\n", header_.filetype);
     }
     if (strncmp(header_.filetype, "pio_file", 8)) {
@@ -71,7 +70,7 @@ public:
       memset(&header_, -1, sizeof(PIOHeader));
       return;
     }
-    if (verbose > 0) {
+    if (verbose) {
       std::cout << "           two: " << header_.two << std::endl;
       std::cout << "       version: " << header_.version << std::endl;
       std::cout << "   Name Length: " << header_.lengthName << std::endl;
