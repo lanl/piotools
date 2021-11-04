@@ -91,18 +91,74 @@ class pio:
         for i in range(int(self.n)):
             hdf = self.readArrayHeader()
             idx = hdf["name"].strip() + b"_%d" % hdf["index"]
-            self.names[idx] = hdf
+            self.names[idx.decode()] = hdf
             self.xnames.append(hdf)
 
-        cch = self.names[b"cell_center_1"]
+        cch = self.names["cell_center_1"]
         self.numcell = int(cch["length"])
         self.outOffset = -1
-        if b"cell_center_3" in self.names:
+        if "cell_center_3" in self.names:
             self.ndim = 3
-        elif b"cell_center_2" in self.names:
+        elif "cell_center_2" in self.names:
             self.ndim = 2
         else:
             self.ndim = 1
+
+        # update the material data
+        self.nmat = 0
+        for theVar in self.names:
+            if not theVar.startswith("matdef_"):
+                continue
+            elif theVar.startswith("matdef_len"):
+                continue
+            else:
+                self.nmat += 1
+        self.mats = None
+        self.matIndices = None
+
+    def updateMaterialIndices(self):
+        if self.matIndices is not None:
+            return
+
+        # read volume and invert
+        self.invVolume = 1.0 / self.readArray("vcell_0")
+
+        # read, convert, and shift mats
+        self.mats = self.readArray("chunk_mat_0")
+        self.mats = self.mats.astype(np.int64) - 1
+
+        # read, convert, and shift indices
+        self.matIndices = self.readArray("chunk_nummat_0")  # read array
+        self.matIndices = np.append(self.matIndices, np.zeros((1)))  # extend array
+        self.matIndices = self.matIndices.astype(np.int64)  # change type
+        iSum = 0  # indexing starts at 0
+        for iCell in range(self.numcell):
+            iNext = self.matIndices[iCell]
+            self.matIndices[iCell] = iSum
+            iSum += iNext
+        self.matIndices[self.numcell] = iSum
+
+    def expandMaterialVariable(self, name, scale=False):
+        """
+        Returns the expanded "index" version of the variable
+        """
+        self.updateMaterialIndices()
+        if not name.endswith("_0"):
+            name += "_0"
+        data = self.readArray(name)
+
+        newArray = np.zeros((self.nmat, self.numcell))
+        for iCell in range(self.numcell):
+            iStart = self.matIndices[iCell]
+            iEnd = self.matIndices[iCell + 1]
+            for idx in range(iStart, iEnd):
+                iMat = self.mats[idx]
+                if scale:
+                    newArray[iMat][iCell] = data[idx] * self.invVolume[iCell]
+                else:
+                    newArray[iMat][iCell] = data[idx]
+
+        return newArray
 
     def writeHeader(self, fp):
         """
@@ -147,6 +203,64 @@ class pio:
             ofp.close()
         self.outOffset = -1
 
+    def writeWithExpandedMatArray(self, outName, myVars=None, mats=None):
+        """
+        Adds all chunk_ variables to the PIO file and
+        writes it to file named `outname`.
+        """
+
+        # save old offset
+        self.oldPosition = self.position
+
+        # Add variables to the list
+        if myVars is None:
+            for name in self.names:
+                if not name.startswith("chunk_"):
+                    continue
+                elif name.startswith("chunk_nummat") or name.startswith("chunk_mat_0"):
+                    continue
+                else:
+                    myVars.append(name)
+
+        if mats is None:
+            mats = [x + 1 for x in range(self.nmat)]
+        print(mats)
+        print("thenames=", myVars)
+        for name in myVars:
+            # add in an entry per material
+            for iMat in mats:
+                self.addCellArray(f"{name}-{iMat}")
+
+        # open file and write data
+        with open(outName, "wb") as ofp:
+            # write the header
+            self.writeHeader(ofp)
+
+            # copy rest of file till old Index offset
+            self.copyToOffset(ofp, self.lHeader, self.oldPosition)
+
+            # write new data to file
+            for name in myVars:
+                theVar = p.expandMaterialVariable(name, True)
+                print(name, theVar.shape)
+                for iMat in mats:
+                    newData = theVar[iMat - 1, :]
+                    print(
+                        "  Writing:",
+                        name + f"-{iMat}",
+                        iMat,
+                        newData.shape,
+                        newData.dtype,
+                    )
+                    newData.tofile(ofp)
+                    self.outOffset += self.numcell
+
+            # write Index
+            self.writeIndex(ofp)
+
+            ofp.close()
+        self.outOffset = -1
+
     def writeIndex(self, outfp):
         """
         Writes the index of variables to outfp.
@@ -184,7 +298,7 @@ class pio:
                 print(f"{0.95*(100.*written)/sz:.2f}%  written ")
         self.outOffset += sz
 
-    def addCellArray(self, name, copyFrom=b"pres_0"):
+    def addCellArray(self, name, idx=0, copyFrom="pres_0"):
         """
         Appends metadata for a new variable to the list of
         variables (self.names, self.xnames).  The base data
@@ -208,7 +322,7 @@ class pio:
             print(cch["bytes"], len(cch["bytes"]))
         self.position += self.numcell
         self.n += 1
-        self.names[name + "_0"] = cch
+        self.names[f"{name}_{idx}"] = cch
         self.xnames.append(cch)
         return
 
@@ -236,7 +350,6 @@ class pio:
         if name not in self.names:
             return None
         hdr = self.names[name]
-        print(hdr)
         self.seek(hdr["offset"])
         data = self.ints(hdr["length"], force=True)
         return data
@@ -341,11 +454,31 @@ if __name__ == "__main__":
     else:
         filename = sys.argv[1]
         p = pio(filename)
+        print("chunk variables are:")
         for n in p.names:
-            print(n)
-        n = b"chunk_nummat_0"
-        c = p.readArray(n)
-        if c is not None:
-            print(f'avg mat/cell = {sum(c)/len(c):.2f}')
-        else:
-            print(f'Array "chunk_nummat" not found in file {filename}')
+            if n.startswith("chunk_") and not (
+                n.startswith("chunk_nummat_0") or n.startswith("chunk_mat_0")
+            ):
+                print("    ", n)
+
+        ####################################################################
+        #
+        # CJ, here is how to add chunk_vol and chunk_eng to fileb bigfile-dmp000000
+        #     If you don't send in myVars, all chunk_* variables are written
+        #
+        # The variable is *ALWAYS* divided by the vcell
+        #
+        # Limit the materials by setting mats = [1,5,9] which will only write those three mats
+        #
+        # Note: all variables scaled by volume of cell
+        #
+        ####################################################################
+
+        # Will write chunk_vol and chunk_eng for all materials
+        outName = "bigfile-dmp000000"
+        myVars = ["chunk_vol", "chunk_eng"]
+        mats = None
+        p.writeWithExpandedMatArray(outName, myVars, mats)
+
+        # To write all material variables to file for all materials:
+        # p.writeWithExpandedArray(outname)
