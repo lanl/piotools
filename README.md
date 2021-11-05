@@ -1,0 +1,44 @@
+# PIO Tools
+# Author Sriram Swaminarayan, sriram@lanl.gov
+This is a set of utilities for reading and manipulating PIO files
+in python and C++.  These files are intended to be building blocks
+for other scripts / programs that will use them to do great things
+
+## C++ Files
+* `PIO`: The base PIO class contained in header file `pio.cpp` that
+	enables you to load meta data contained in a raw PIO file and read
+	variables from it.  If you want to conserve memory, you will want
+	to write your code based on this class and create your own
+	variable readers based on the code in class `PioInterface`.
+* `PioInterface`: This class, contained in files `pioInterface.hpp`
+      and `pioInterface.cpp`, provides a nicer interface to class
+      `PIO` with utilities that will read in cell variables and expand
+      material variables
+	  
+## Python Files
+* `pio.py`: This file is an amalgamation of the code contained in the
+   C++ classes `PIO` and `PioInterface`.  It enables you to read a PIO
+   file, query variables from it, and also write out a new PIO file
+   with a new set of variables.  As a demo, If you run it on its own
+   with a PIO file as an argument, it will create a file
+   `bigfile-dmp000000` that includes all variables from the original
+   file and adds to them all the material variables expanded to be
+   cell arrays so that the ParaView PIO reader can pull them in.
+* `riotcellinfo.py`: Not related to PIO files, but created for easier
+  comparisons of PIO files with RIOT restart files.  Prints
+  information on RIOT block-structured AMR files.
+
+## Examples directory
+* `addVar.py`: Demonstrates the use of the Python `pio` class by
+  adding the processor ID as an additional variable to the file.  It
+  also creates a `tmp.pio` to ease opening the new file with
+  ParaView.
+* `cloneCount.py` + `cloneInfo.py`: A simple duo of scripts that uses
+  the PIO file to generate an estimate of the number of clone cells.
+* `rootCount.py`: Uses the python `pio` class to print out the root
+  mesh size for a PIO file.
+* `cellinfo.py`: Not a PIO utility.  Prints out the number of cells as
+  a function of time from an xRage `-output` file.
+* `testPio.cpp`: A simple program to show how to use the C++ `PIO`
+  class to read in a variable from the file.
+
