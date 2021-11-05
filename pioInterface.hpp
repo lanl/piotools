@@ -41,17 +41,18 @@ private:
   int64_t *uniqMap_; //< if uniqId is set, provides mapping from uniq ids to ids
                      // in dump
                      // file [nCell]
-  std::vector<int> level_;              //< level of each cell [nCell]
-  std::vector<int64_t> daughter_;       //< daughter of each cell [nCell]
+  std::vector<int> level_;        //< level of each cell [nCell]
+  std::vector<int64_t> daughter_; //< daughter of each cell [nCell]
   std::map<int, std::vector<double>>
-  center_;                              //< center of each cell [nDim][nCell]
-  double **dXyz_;                       //< cell size at each level [nLevel]
-  int64_t **iMap;                       //< mapping of cells by level
-  PIO *pd;                              //< PIO data struct for dmp file
-  int nMat_;                            //< Number of materials
-  std::vector<int> matIds_;             //< Array of material IDs
-  std::vector<int64_t> matStartIndex_;  //< Index at which materials start for each cell
-  int verbose_;                         //< print verbose information
+      center_;              //< center of each cell [nDim][nCell]
+  double **dXyz_;           //< cell size at each level [nLevel]
+  int64_t **iMap;           //< mapping of cells by level
+  PIO *pd;                  //< PIO data struct for dmp file
+  int nMat_;                //< Number of materials
+  std::vector<int> matIds_; //< Array of material IDs
+  std::vector<int64_t>
+      matStartIndex_; //< Index at which materials start for each cell
+  int verbose_;       //< print verbose information
 
   // private functions
   void updateIMap();
@@ -64,18 +65,17 @@ private:
   void freeField(const char *name);
 
 public:
-  
   void listFields(FILE *fp); //< prints fields in the dmp file to fp
 
   /** member access functions **/
   int uniq() { return uniq_; }
   int64_t nCell() { return nCell_; }
   int nDim() { return nDim_; }
-  
+
   int nMat() { return nMat_; }
   std::vector<int> &matIds() { return matIds_; }
-  std::vector<int64_t> &matStartIndex() { return matStartIndex_;}
-  
+  std::vector<int64_t> &matStartIndex() { return matStartIndex_; }
+
   int nLevel() { return nLevel_; }
   const double **dXyz() { return (const double **)(dXyz_); }
   const int64_t *uniqMap() { return (const int64_t *)uniqMap_; }

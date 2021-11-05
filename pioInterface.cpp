@@ -270,7 +270,8 @@ PioInterface::getMaterialVariable(const char *field) {
 
   // cycle through cells and fill in fields
   for (int64_t icell = 0; icell < nCell_; icell++) {
-    for (int64_t indexMat = matStartIndex_[icell]; indexMat < matStartIndex_[icell+1]; indexMat++) {
+    for (int64_t indexMat = matStartIndex_[icell];
+         indexMat < matStartIndex_[icell + 1]; indexMat++) {
       int idMat = matIds_[indexMat];
       rMap[idMat][icell] = data[indexMat];
     }
@@ -325,9 +326,9 @@ PioInterface::PioInterface(const char *name, const int uniq, const int verbose)
       int64_t startIdx;
       startIdx = 0;
       for (int64_t i = 0; i < nCell_; i++) {
-	int64_t n = matStartIndex_[i];
-	matStartIndex_[i] = startIdx;
-	startIdx += n;
+        int64_t n = matStartIndex_[i];
+        matStartIndex_[i] = startIdx;
+        startIdx += n;
       }
       matStartIndex_[nCell_] = startIdx;
     }
