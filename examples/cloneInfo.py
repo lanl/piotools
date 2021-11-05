@@ -41,7 +41,7 @@ def countClones(cellsPerProc, p, verbose=False):
     ndim = p.ndim
 
     # read in relevant arrays
-    dtr = p.readArray(b"cell_daughter_0")
+    dtr = p.readArray("cell_daughter_0")
 
     if verbose:
         print(f"nProcs={len(cellsPerProc)}")
@@ -66,8 +66,8 @@ def countClones(cellsPerProc, p, verbose=False):
         if verbose:
             print("Counting Clones in direction", iDir)
         idx = 2 * iDir + 1
-        nl = p.readArray(b"cell_index_%1d" % (idx)).astype(int) - 1
-        nh = p.readArray(b"cell_index_%1d" % (idx + 1)).astype(int) - 1
+        nl = p.readArray("cell_index_%1d" % (idx)).astype(int) - 1
+        nh = p.readArray("cell_index_%1d" % (idx + 1)).astype(int) - 1
         for i in range(numcell):
             if dtr[i] > 0:
                 if iDir == 0:
@@ -101,8 +101,8 @@ def CloneInfo(f, verbose=False):
     ndim = p.ndim
 
     # read in relevant arrays
-    dtr = p.readArray(b"cell_daughter_0")
-    gns = p.readArray(b"global_numcell_0")
+    dtr = p.readArray("cell_daughter_0")
+    gns = p.readArray("global_numcell_0")
     if gns is None:
         gns = [p.numcell]
     return countClones(gns, p, verbose=False)

@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
     }
   } else {
     // Read partitioning from file
-    nProcs = p.arraySize("global_numcell").l;
+    nProcs = p.arrayDims["global_numcell"].l;
     gns = p.variable<int64_t>("global_numcell");
   }
   // Read in daughter array

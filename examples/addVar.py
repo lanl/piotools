@@ -67,34 +67,27 @@ else:
     except:
         outbase = "tmp"
 
+    # Ensure that outfile doesn't already exist
+    outfile = outbase + "-dmp000000"
+    if os.path.exists(outfile):
+        print(f"\n\n  *** File {outfile} exists, will not proceed. ***\n\n")
+        exit(1)
+
     # Read in the dump file metadata
     p = pio(filename)
 
+    # Write the Paraview file
+    with open(outbase + ".pio", "w") as ofp:
+        ofp.writelines(["DUMP_DIRECTORY .\n", f"DUMP_BASE_NAME {outbase}\n"])
+
     # Create processor ID array
-    procID = np.zeros(p.numcell, dtype="int")
-    print("numcell=", p.numcell)
-    data = p.readArray(b"global_numcell_0")
-    dtr = p.readArray(b"cell_daughter_0")
+    newData = np.zeros(p.numcell, dtype="double")
+    data = p.readArray("global_numcell_0")
     lastIdx = 0
-    ncell = 0
-    id = 0
-    delta = p.numcell / 10
-    print("processing PE info")
     for i in range(len(data)):
         nextIdx = lastIdx + int(data[i])
-        # procID[lastIdx:nextIdx] = int(i)
-        for j in range(int(data[i])):
-            if dtr[id] == 0:
-                procID[ncell] = int(i)
-                ncell += 1
-            id += 1
+        newData[lastIdx:nextIdx] = i
         lastIdx = nextIdx
-        print(f"\rProcessed  %{100.*float(lastIdx)/float(p.numcell):.1f} done", end="")
-    print("")
 
-    print(f"  Writing {ncell} entries to disk")
-    # with open('/tmp/xxx.bin','wb') as fp:
-    np.resize(procID, ncell)
-    np.savez_compressed("/tmp/proc.npz", procID=procID)
-    xxx = np.load("/tmp/proc.npz")
-    print("written cells = ", xxx["procID"].size)
+    # Write new file with processor id included
+    p.writeWithNewCellArray(outfile, "processor_id", newData)

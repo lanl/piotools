@@ -2,7 +2,7 @@ def getRootSize(p):
     """
     Returns the root mesh size of pio file p
     """
-    l1 = p.readArray(b"cell_level_0")
+    l1 = p.readArray("cell_level_0")
     l0 = l1[0]
     for i in range(p.numcell - 1, 0, -1):
         if l1[i] == l0:
@@ -14,7 +14,7 @@ def getRootSize(p):
     r = [0] * p.ndim
     offsets = [1, 2, 4]
     for dim in range(p.ndim):
-        name = b"cell_center_%1d" % (dim + 1)
+        name = "cell_center_%1d" % (dim + 1)
         c[dim] = p.readArrayRange(name, 0, 1)[0]
         d[dim] = p.readArrayRange(name, offsets[dim], offsets[dim] + 1)[0]
         e[dim] = p.readArrayRange(name, i, i + 1)[0]
