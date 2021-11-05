@@ -1,5 +1,5 @@
 # PIO Tools
-# Author Sriram Swaminarayan, sriram@lanl.gov
+## Author: Sriram Swaminarayan, sriram@lanl.gov
 This is a set of utilities for reading and manipulating PIO files
 in python and C++.  These files are intended to be building blocks
 for other scripts / programs that will use them to do great things
