@@ -13,11 +13,20 @@
  the public, perform publicly and display publicly, and to permit others to do so.
 ========================================================================================
 
+To get latest official version of this script:
+  git clone git@gitlab.lanl.gov:sriram/pio-tools.git
+
 A simple class to read and manipulate PIO files.
+Demo at bottom expands fractional volume and fractional energy.
 
 Author: Sriram Swaminarayan (sriram@lanl.gov)
-Date: March 17, 2021
-Version: 1.0
+Date: December 02, 2021
+Version: 1.01
+
+Change Log:
+Version 1.01: 2021-12-02: Introduced sizeMatArrays to recognize fractional arrays
+                          Set buffer size to 8GB for copyToOffset()
+Version 1.00: 2021-03-01: Initial commit
 """
 from __future__ import print_function
 import numpy as np
@@ -32,8 +41,8 @@ class pio:
     to do heavy-duty lifting.
 
     Author: Sriram Swaminarayan (sriram@lanl.gov)
-    Date: March 17, 2021
-    Version: 1.0
+    Date: December 02, 2021
+    Version: 1.01
 
     """
 
@@ -137,6 +146,7 @@ class pio:
             self.matIndices[iCell] = iSum
             iSum += iNext
         self.matIndices[self.numcell] = iSum
+        self.sizeMatArrays = iSum
 
     def expandMaterialVariable(self, name, scale=False):
         """
@@ -167,7 +177,8 @@ class pio:
         self.outOffset = 0
         fp.write(b"pio_file")
         np.array(
-            [2.0, self.version, self.lName, self.lHeader, self.lIndex], dtype="double",
+            [2.0, self.version, self.lName, self.lHeader, self.lIndex],
+            dtype="double",
         ).tofile(fp)
         fp.write(self.date)
         np.array([self.n, self.position, self.signature], dtype="double").tofile(fp)
@@ -212,20 +223,28 @@ class pio:
         # save old offset
         self.oldPosition = self.position
 
+        # Update material indices
+        self.updateMaterialIndices()
+
         # Add variables to the list
         if myVars is None:
+            myVars = []
             for name in self.names:
-                if not name.startswith("chunk_"):
+                if not self.names[name]["length"] == self.sizeMatArrays:
                     continue
                 elif name.startswith("chunk_nummat") or name.startswith("chunk_mat_0"):
                     continue
                 else:
-                    myVars.append(name)
+                    if name.endswith("_0"):
+                        xName = name[:-2]
+                    else:
+                        xName = name
+                    myVars.append(xName)
 
         if mats is None:
             mats = [x + 1 for x in range(self.nmat)]
-        print(mats)
-        print("thenames=", myVars)
+        print("materials=", mats)
+        print("variables=", myVars)
         for name in myVars:
             # add in an entry per material
             for iMat in mats:
@@ -241,14 +260,13 @@ class pio:
 
             # write new data to file
             for name in myVars:
-                theVar = p.expandMaterialVariable(name, True)
+                theVar = p.expandMaterialVariable(name + "_0", True)
                 print(name, theVar.shape)
                 for iMat in mats:
                     newData = theVar[iMat - 1, :]
                     print(
                         "  Writing:",
                         name + f"-{iMat}",
-                        iMat,
                         newData.shape,
                         newData.dtype,
                     )
@@ -281,10 +299,10 @@ class pio:
         """
         self.seek(offsetStart)
         sz = offsetEnd - offsetStart
-        if self.numcell < 1048576:
-            bufsize = 1048576
-        else:
-            bufsize = self.numcell
+
+        # Read / write at most 8GB at once
+        bufsize = 1024 ** 3
+
         written = 0
         left = sz
         while left:
@@ -435,7 +453,7 @@ class pio:
         If count == 1 and force is False, then it will
         return scalars.
         """
-        if count == 1:
+        if count == 1 and (not force):
             value = int(self.doubles(count, offset, force))
         else:
             value = [int(x) for x in self.doubles(count, offset, force)]
@@ -455,23 +473,24 @@ if __name__ == "__main__":
         filename = sys.argv[1]
         p = pio(filename)
         print("chunk variables are:")
+        p.updateMaterialIndices()
         for n in p.names:
-            if n.startswith("chunk_") and not (
-                n.startswith("chunk_nummat_0") or n.startswith("chunk_mat_0")
-            ):
+            if not p.names[n]["length"] == p.sizeMatArrays:
+                continue
+            elif not n.startswith("chunk_nummat_0") or n.startswith("chunk_mat_0"):
                 print("    ", n)
 
         ####################################################################
-        #
-        # CJ, here is how to add chunk_vol and chunk_eng to fileb bigfile-dmp000000
-        #     If you don't send in myVars, all chunk_* variables are written
+        # Example of how to add chunk_vol and chunk_eng to fileb
+        # bigfile-dmp000000 If you don't send in myVars, all chunk_*
+        # variables are written
         #
         # The variable is *ALWAYS* divided by the vcell
         #
-        # Limit the materials by setting mats = [1,5,9] which will only write those three mats
+        # Limit the materials by setting mats = [1,5,9] which will
+        # only write those three mats
         #
         # Note: all variables scaled by volume of cell
-        #
         ####################################################################
 
         # Will write chunk_vol and chunk_eng for all materials
@@ -481,4 +500,4 @@ if __name__ == "__main__":
         p.writeWithExpandedMatArray(outName, myVars, mats)
 
         # To write all material variables to file for all materials:
-        # p.writeWithExpandedArray(outname)
+        # p.writeWithExpandedMatArray(outName)
