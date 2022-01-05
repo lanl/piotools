@@ -1,5 +1,7 @@
 # PIO Tools (LANL C21102)
 ## Author: Sriram Swaminarayan, sriram@lanl.gov
+## See `Copyright.txt` for copyright information
+
 This is a set of utilities written in Python and C++ for reading and
 manipulating PIO files. These files are intended to be building blocks
 for other scripts / programs that will use them to do great things.
