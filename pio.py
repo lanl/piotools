@@ -477,9 +477,12 @@ if __name__ == "__main__":
         p.updateCsrIndices("chunk_nummat", "chunk_mat", "vcell", 1)
         print("CSR variables are:")
         for n in p.names:
-            if p.names[n]["length"] == p.csrLen:
-                print("    ", n)
-
+            #if p.names[n]["length"] == p.csrLen:
+            print("    ", n)
+        c = p.readArray("hist_cycle_0")
+        print(c)
+        c = p.readArray("hist_time_0")
+        print(c)
         # Will write chunk_vol and chunk_eng for all CSR Indices
         outName = "bigfile-dmp000000"
         myVars = ["chunk_vol", "chunk_eng"]
