@@ -232,7 +232,7 @@ class pio:
         self.oldPosition = self.position
 
         # Update material indices
-        self.updateMaterialIndices()
+        self.updateCsrIndices("chunk_nummat", "chunk_mat", "vcell", 1)
 
         # Add variables to the list
         if myVars is None:
