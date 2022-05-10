@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ========================================================================================
- (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+ (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
 
  This program was produced under U.S. Government contract 89233218CNA000001 for Los
  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,7 +14,7 @@
 ========================================================================================
 
 To get latest official version of this script:
-  git clone git@gitlab.lanl.gov:sriram/pio-tools.git
+  git clone git@gitlab.com:lanl/piotools.git
 
 A simple class to read and manipulate PIO files.
 Demo at bottom expands fractional volume and fractional energy.
@@ -103,6 +103,7 @@ class pio:
             self.names[idx.decode()] = hdf
             self.xnames.append(hdf)
 
+        # get the number of dimensions based on cell data
         cch = self.names["cell_center_1"]
         self.numcell = int(cch["length"])
         self.outOffset = -1
@@ -113,60 +114,67 @@ class pio:
         else:
             self.ndim = 1
 
-        # update the material data
-        self.nmat = 0
-        for theVar in self.names:
-            if not theVar.startswith("matdef_"):
-                continue
-            elif theVar.startswith("matdef_len"):
-                continue
-            else:
-                self.nmat += 1
-        self.mats = None
-        self.matIndices = None
+        # initialize the CSR data
+        self.csrN = 0
+        self.csrLen = 0
+        self.invVol = None
+        self.csrID = None
+        self.csrIdx = None
 
-    def updateMaterialIndices(self):
-        if self.matIndices is not None:
+    def updateCsrIndices(self, csr_counts, csr_ids, csr_vols, shift=1):
+        if self.csrIdx is not None:
             return
 
+        print("updating")
+        if not csr_counts.endswith("_0"):
+            csr_counts += "_0"
+
+        if not csr_ids.endswith("_0"):
+            csr_ids += "_0"
+
+        if not csr_vols.endswith("_0"):
+            csr_vols += "_0"
+
         # read volume and invert
-        self.invVolume = 1.0 / self.readArray("vcell_0")
+        self.invVolume = 1.0 / self.readArray(csr_vols)
 
-        # read, convert, and shift mats
-        self.mats = self.readArray("chunk_mat_0")
-        self.mats = self.mats.astype(np.int64) - 1
+        # read, convert, and shift CSR IDs
+        self.csrID = self.readArray(csr_ids).astype(np.int64)
+        self.csrN = max(self.csrID)
+        self.csrID -= shift
 
-        # read, convert, and shift indices
-        self.matIndices = self.readArray("chunk_nummat_0")  # read array
-        self.matIndices = np.append(self.matIndices, np.zeros((1)))  # extend array
-        self.matIndices = self.matIndices.astype(np.int64)  # change type
+        # read counts and convert to indices
+        self.csrIdx = self.readArray(csr_counts).astype(np.int64)  # read array
+        self.csrLen = sum(self.csrIdx)
+        self.csrIdx = np.append(self.csrIdx, 0)  # extend array
         iSum = 0  # indexing starts at 0
         for iCell in range(self.numcell):
-            iNext = self.matIndices[iCell]
-            self.matIndices[iCell] = iSum
+            iNext = self.csrIdx[iCell]
+            self.csrIdx[iCell] = iSum
             iSum += iNext
-        self.matIndices[self.numcell] = iSum
-        self.sizeMatArrays = iSum
+        self.csrIdx[self.numcell] = iSum
 
-    def expandMaterialVariable(self, name, scale=False):
+    def expandCsrVariable(self, name, scale=False):
         """
         Returns the expanded "index" version of the variable
         """
-        self.updateMaterialIndices()
+        if self.csrN == 0:
+            return None
+
         if not name.endswith("_0"):
             name += "_0"
         data = self.readArray(name)
 
-        newArray = np.zeros((self.nmat, self.numcell))
+        newArray = np.zeros((self.csrN, self.numcell))
         for iCell in range(self.numcell):
-            iStart = self.matIndices[iCell]
-            iEnd = self.matIndices[iCell + 1]
+            iStart = self.csrIdx[iCell]
+            iEnd = self.csrIdx[iCell + 1]
             for idx in range(iStart, iEnd):
-                iMat = self.mats[idx]
+                iCsr = self.csrID[idx]
                 if scale:
-                    newArray[iMat][iCell] = data[idx] * self.invVolume[iCell]
+                    newArray[iCsr][iCell] = data[idx] * self.invVolume[iCell]
                 else:
-                    newArray[iMat][iCell] = data[idx]
+                    newArray[iCsr][iCell] = data[idx]
 
         return newArray
 
@@ -214,7 +222,7 @@ class pio:
             ofp.close()
         self.outOffset = -1
 
-    def writeWithExpandedMatArray(self, outName, myVars=None, mats=None):
+    def writeWithExpandedCsrArray(self, outName, myVars=None, outIndices=None):
         """
         Adds all chunk_ variables to the PIO file and
         writes it to file named `outname`.
@@ -224,31 +232,24 @@ class pio:
         self.oldPosition = self.position
 
         # Update material indices
-        self.updateMaterialIndices()
+        self.updateCsrIndices("chunk_nummat", "chunk_mat", "vcell", 1)
 
         # Add variables to the list
         if myVars is None:
             myVars = []
             for name in self.names:
-                if not self.names[name]["length"] == self.sizeMatArrays:
-                    continue
-                elif name.startswith("chunk_nummat") or name.startswith("chunk_mat_0"):
-                    continue
-                else:
+                if self.names[name]["length"] == self.csrLen:
                     if name.endswith("_0"):
-                        xName = name[:-2]
-                    else:
-                        xName = name
-                    myVars.append(xName)
+                        name = name[:-2]
+                    myVars.append(name)
 
-        if mats is None:
-            mats = [x + 1 for x in range(self.nmat)]
-        print("materials=", mats)
-        print("variables=", myVars)
+        if outIndices is None:
+            outIndices = [x + 1 for x in range(self.csrN)]
+
         for name in myVars:
-            # add in an entry per material
-            for iMat in mats:
-                self.addCellArray(f"{name}-{iMat}")
+            # add in an entry per CSR Index
+            for iCsr in outIndices:
+                self.addCellArray(f"{name}-{iCsr}")
 
         # open file and write data
         with open(outName, "wb") as ofp:
@@ -260,13 +261,14 @@ class pio:
 
             # write new data to file
             for name in myVars:
-                theVar = p.expandMaterialVariable(name + "_0", True)
+                theVar = p.expandCsrVariable(name, True)
                 print(name, theVar.shape)
-                for iMat in mats:
-                    newData = theVar[iMat - 1, :]
+                for iCsr in outIndices:
+                    newData = theVar[iCsr - 1, :]
                     print(
                         "  Writing:",
-                        name + f"-{iMat}",
+                        name + f"-{iCsr}",
+                        iCsr,
                         newData.shape,
                         newData.dtype,
                     )
@@ -472,32 +474,20 @@ if __name__ == "__main__":
     else:
         filename = sys.argv[1]
         p = pio(filename)
-        print("chunk variables are:")
-        p.updateMaterialIndices()
+        p.updateCsrIndices("chunk_nummat", "chunk_mat", "vcell", 1)
+        print("CSR variables are:")
         for n in p.names:
-            if not p.names[n]["length"] == p.sizeMatArrays:
-                continue
-            elif not n.startswith("chunk_nummat_0") or n.startswith("chunk_mat_0"):
-                print("    ", n)
-
-        ####################################################################
-        # Example of how to add chunk_vol and chunk_eng to fileb
-        # bigfile-dmp000000 If you don't send in myVars, all chunk_*
-        # variables are written
-        #
-        # The variable is *ALWAYS* divided by the vcell
-        #
-        # Limit the materials by setting mats = [1,5,9] which will
-        # only write those three mats
-        #
-        # Note: all variables scaled by volume of cell
-        ####################################################################
-
-        # Will write chunk_vol and chunk_eng for all materials
+            #if p.names[n]["length"] == p.csrLen:
+            print("    ", n)
+        c = p.readArray("hist_cycle_0")
+        print(c)
+        c = p.readArray("hist_time_0")
+        print(c)
+        # Will write chunk_vol and chunk_eng for all CSR Indices
         outName = "bigfile-dmp000000"
         myVars = ["chunk_vol", "chunk_eng"]
-        mats = None
-        p.writeWithExpandedMatArray(outName, myVars, mats)
+        outIndices = None
+        p.writeWithExpandedCsrArray(outName, myVars, outIndices)
 
-        # To write all material variables to file for all materials:
-        # p.writeWithExpandedMatArray(outName)
+        # # To write all CSR variables to file for all materials:
+        # p.writeWithExpandedCsrArray(outName)

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -28,8 +28,6 @@ void PioInterface::listFields(FILE *fp) { //< lists fields in the file
 }
 
 void PioInterface::updateDXyz() {
-  /* we are going to cheat and use knowledge of the xrage structure to fill
-     in the levels.  Basically we know the neighbbors of cell #1 */
   const int inbr[3] = {1, 2,
                        4}; /* the already known level 1 neighbor information */
 
