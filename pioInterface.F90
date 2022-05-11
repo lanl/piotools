@@ -43,14 +43,12 @@ module pio_interface
      subroutine pio_release_d(fptr) BIND(C, name="pio_release_d")
        use iso_c_binding
        implicit none
-       integer(c_int), VALUE, intent(in) :: id
-       double(c_double), pointer, dimension(:), intent(inout) :: fptr
+       real(c_double), pointer, dimension(:), intent(inout) :: fptr
      end subroutine pio_release_d
 
      subroutine pio_release_i64(fptr) BIND(C, name="pio_release_i64")
        use iso_c_binding
        implicit none
-       integer(c_int), VALUE, intent(in) :: id
        integer(c_int64_t), pointer, dimension(:), intent(inout) :: fptr
      end subroutine pio_release_i64
 
