@@ -40,6 +40,20 @@ module pio_interface
        integer(c_int), VALUE, intent(in) :: id
      end subroutine pio_release
 
+     subroutine pio_release_d(fptr) BIND(C, name="pio_release_d")
+       use iso_c_binding
+       implicit none
+       integer(c_int), VALUE, intent(in) :: id
+       double(c_double), pointer, dimension(:), intent(inout) :: fptr
+     end subroutine pio_release_d
+
+     subroutine pio_release_i64(fptr) BIND(C, name="pio_release_i64")
+       use iso_c_binding
+       implicit none
+       integer(c_int), VALUE, intent(in) :: id
+       integer(c_int64_t), pointer, dimension(:), intent(inout) :: fptr
+     end subroutine pio_release_i64
+
      integer(c_int64_t) function pio_ncell(ID) BIND(C, name="pio_nCell")
        use iso_c_binding
        implicit none
@@ -79,9 +93,50 @@ module pio_interface
        character(c_char), intent(in) :: var(1)
      end function pio_length_c
 
-  end interface
+     function pio_get_d_c(ID, var, index) BIND(C, name="pio_get_d")
+       use iso_c_binding
+       implicit none
+       type(c_ptr) :: pio_get_d_c
+       integer(c_int), VALUE, intent(in) :: id
+       character(c_char), intent(in) :: var(1)
+       integer(c_int), VALUE, intent(in) :: index
+     end function pio_get_d_c
+       
+     function pio_get_range_d_c(ID, var, index, iStart, nCount) BIND(C, name="pio_get_d")
+       use iso_c_binding
+       implicit none
+       type(c_ptr) :: pio_get_range_d_c
+       integer(c_int), VALUE, intent(in) :: id
+       character(c_char), intent(in) :: var(1)
+       integer(c_int), VALUE, intent(in) :: index
+       integer(c_int64_t), VALUE, intent(in) :: iStart
+       integer(c_int64_t), VALUE, intent(in) :: nCount
+     end function pio_get_range_d_c
+
+     function pio_get_i64_c(ID, var, index) BIND(C, name="pio_get_d")
+       use iso_c_binding
+       implicit none
+       type(c_ptr) :: pio_get_i64_c
+       integer(c_int), VALUE, intent(in) :: id
+       character(c_char), intent(in) :: var(1)
+       integer(c_int), VALUE, intent(in) :: index
+     end function pio_get_i64_c
+       
+     function pio_get_range_i64_c(ID, var, index, iStart, nCount) BIND(C, name="pio_get_d")
+       use iso_c_binding
+       implicit none
+       type(c_ptr) :: pio_get_range_i64_c
+       integer(c_int), VALUE, intent(in) :: id
+       character(c_char), intent(in) :: var(1)
+       integer(c_int), VALUE, intent(in) :: index
+       integer(c_int64_t), VALUE, intent(in) :: iStart
+       integer(c_int64_t), VALUE, intent(in) :: nCount
+     end function pio_get_range_i64_c
+       
+    end interface
 
 contains
+
 
   subroutine pio_init(ID, fname, verbose)
     use iso_c_binding
@@ -108,39 +163,15 @@ contains
     pio_length = pio_length_c(ID, C0(var))
   end function pio_length
 
-  function pio_get_d(ID, var, index) result(values)
-    use iso_c_binding
-    implicit none
-    interface
-       function pio_get_d_c(ID, var, index) BIND(C, name="pio_get_d")
-         use iso_c_binding
-         implicit none
-         type(c_ptr) :: pio_get_d_c
-         integer(c_int), VALUE, intent(in) :: id
-         character(c_char), intent(in) :: var(1)
-         integer(c_int), VALUE, intent(in) :: index
-       end function pio_get_d_c
-    end interface
-    real(c_double), pointer, dimension (:) :: values
-    integer, intent(in) :: id
-    character*(*), intent(in) :: var
-    integer, intent(in) :: index
-    integer n
-    type(c_ptr) :: cptr
-    n = pio_length(ID, C0(var))
-    cptr = pio_get_d_c(ID, C0(var), index)
-    call c_f_pointer(cptr, values, [n])
-  end function pio_get_d
-
   function pio_center(ID, index) result(values) 
     use iso_c_binding
     implicit none
-    double(c_double), pointer, dimension (:) :: values
+    integer(c_int64_t), pointer, dimension (:) :: values
     interface
        function pio_center_c(ID, index) BIND(C, name="pio_center")
          use iso_c_binding
          implicit none
-         type(c_ptr) :: pio_daughter_c
+         type(c_ptr) :: pio_center_c
          integer(c_int), VALUE, intent(in) :: id
          integer(c_int), VALUE, intent(in) :: index
        end function pio_center_c
@@ -181,9 +212,58 @@ contains
     pio_exists = pio_exists_c(id, C0(var))
   end function pio_exists
 
-  ! const double *pio_get_d(const int ID, const char *var, const int index);
-  ! const int64_t *daughter(const int ID)
-  ! const int64_t *pio_get_i64(const int ID, const char *var_name, const int index);
-  ! const double *pio_get_range_d(const int ID, const char *var_name, const int index, const int start, const int end);
-  ! const double *pio_get_range_i64(const int ID, const char *var_name, const int index, const int start, const int end);
+  function pio_get_d(ID, var, index) result(values)
+    use iso_c_binding
+    implicit none
+    real(c_double), pointer, dimension (:) :: values
+    integer, intent(in) :: id
+    character*(*), intent(in) :: var
+    integer, intent(in) :: index
+    integer*8 :: n
+    type(c_ptr) :: cptr
+    n = pio_length(ID, C0(var))
+    cptr = pio_get_d_c(ID, C0(var), index)
+    call c_f_pointer(cptr, values, [n])
+  end function pio_get_d
+
+  function pio_get_range_d(ID, var, index, iStart, nCount) result(values)
+    implicit none
+    real(c_double), pointer, dimension (:) :: values
+    integer, intent(in) :: id
+    character*(*), intent(in) :: var
+    integer, intent(in) :: index
+    integer(c_int64_t), VALUE, intent(in) :: iStart
+    integer(c_int64_t), VALUE, intent(in) :: nCount
+    type(c_ptr) :: cptr    
+    cptr = pio_get_range_d_c(ID, C0(var), index, iStart, nCount)
+    call c_f_pointer(cptr, values, [nCount])
+  end function pio_get_range_d
+
+  function pio_get_i64(ID, var, index) result(values)
+    use iso_c_binding
+    implicit none
+    integer(c_int64_t), pointer, dimension (:) :: values
+    integer, intent(in) :: id
+    character*(*), intent(in) :: var
+    integer, intent(in) :: index
+    integer*8 :: n
+    type(c_ptr) :: cptr
+    n = pio_length(ID, C0(var))
+    cptr = pio_get_i64_c(ID, C0(var), index)
+    call c_f_pointer(cptr, values, [n])
+  end function pio_get_i64
+
+  function pio_get_range_i64(ID, var, index, iStart, nCount) result(values)
+    implicit none
+    integer(c_int64_t), pointer, dimension (:) :: values
+    integer, intent(in) :: id
+    character*(*), intent(in) :: var
+    integer, intent(in) :: index
+    integer(c_int64_t), VALUE, intent(in) :: iStart
+    integer(c_int64_t), VALUE, intent(in) :: nCount
+    type(c_ptr) :: cptr
+    cptr = pio_get_range_i64_c(ID, C0(var), index, iStart, nCount)
+    call c_f_pointer(cptr, values, [nCount])
+  end function pio_get_range_i64
+
 end module pio_interface

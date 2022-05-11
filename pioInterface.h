@@ -56,6 +56,11 @@ extern double **pio_get_matvar_d(int ID, const char *field);
 extern double **pio_get_matvar_range_d(int ID, const char *field,
                                        int64_t iStart, int64_t nCount);
 extern void pio_release_matvar_d(double **ptr, int nMat);
+
+extern double *pio_get_matvar_index_d(int ID, const char *field, int index);
+extern double *pio_get_matvar_index_range_d(int ID, const char *field,
+                                            int index, int64_t iStart,
+                                            int64_t nCount);
 #ifdef __cplusplus
 }
 #endif

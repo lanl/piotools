@@ -13,6 +13,7 @@
 // so.
 //========================================================================================
 
+#include <chrono>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -25,6 +26,7 @@
 
 #include "pioInterface.h"
 #include "pioInterface.hpp"
+
 
 void PioInterface::listFields(FILE *fp) { //< lists fields in the file
   std::vector<std::string> names = pd->arrayOrder;
@@ -249,24 +251,8 @@ PioInterface::getMaterialVariable(const char *field, int64_t iStart,
   int64_t matCount = matStartIndex_[iStart + nCount] - matOffset;
   auto data = getField<double>(field, 0, matOffset, matCount);
   if (data.size() == 0) {
-    // Adjust field name in case of error
-    if (verbose_) {
-      std::cout << "Unable to find Field: " << field << std::endl;
-    }
-    if (!strncmp("chunk_", field, 6)) {
-      char newField[strlen(field) + 1];
-      sprintf(newField, "frac_%s_0", field + 6);
-      if (verbose_) {
-        std::cout << "Unable to find Field: " << field << " trying " << newField
-                  << std::endl;
-      }
-      return getMaterialVariable(newField, iStart, nCount);
-    } else {
-      if (verbose_) {
-        std::cout << "Unable to find Field: " << field << std::endl;
-      }
-      return rMap;
-    }
+    std::cout << "Unable to find Field: " << field << std::endl;
+    return rMap;
   }
   if (verbose_) {
     std::cout << "Found Field: " << field << std::endl;
@@ -278,14 +264,13 @@ PioInterface::getMaterialVariable(const char *field, int64_t iStart,
   }
 
   if (nMat() == 1) {
-    memcpy(rMap[1].data(), data.data(), nCount * sizeof(double));
+    rMap[1].swap(data);
     return rMap;
   }
 
   // cycle through cells and fill in fields
   for (int64_t icell = iStart; icell < iStart + nCount; icell++) {
-    for (int64_t indexMat = matStartIndex_[icell];
-         indexMat < matStartIndex_[icell + 1]; indexMat++) {
+    for (int64_t indexMat = matStartIndex_[icell]; indexMat < matStartIndex_[icell + 1]; indexMat++) {
       int idMat = matIds_[indexMat];
       rMap[idMat][icell - iStart] = data[indexMat - matOffset];
     }
@@ -445,7 +430,7 @@ double **pio_get_matvar_range_d(int ID, const char *field, int64_t iStart,
   auto &pd = myFiles[ID];
   int nMat = pd->nMat();
   auto myVar = pd->getMaterialVariable(field, iStart, nCount);
-  ret = (double **)calloc(nMat + 1, myVar[0].size() * sizeof(double *));
+  ret = (double **)calloc(nMat + 1, myVar[1].size() * sizeof(double *));
   ret[0] = nullptr;
   for (int i = 1; i <= nMat; i++) {
     ret[i] = deepCopy<double>(myVar[i]);
@@ -461,28 +446,40 @@ int64_t *pio_get_i64(int ID, const char *var_name, int index) {
   return pio_get_range_i64(ID, var_name, index, 0, -1);
 }
 
-void pio_release_i64(int64_t *ptr) { free(ptr); }
+  void pio_release_i64(int64_t *ptr) { if(ptr) {free(ptr);} }
 
-void pio_release_d(double *ptr) { free(ptr); }
+  void pio_release_d(double *ptr) { if(ptr) {free(ptr);} }
 
-void pio_release_matvar_d(double **ptr, int nMat) {
-  for (int i = 1; i <= nMat; i++) {
-    free(ptr[i]);
+  void pio_release_matvar_d(double **ptr, int nMat) {
+    if ( ptr) {
+      for (int i = 1; i <= nMat; i++) {
+	if(ptr[i]){free(ptr[i]);}
+      }
+      free(ptr);
+    }
   }
-  free(ptr);
-}
 }
 
 #ifdef DOPIOMAIN
+
+/* simple timing functions */
+static std::chrono::time_point<std::chrono::system_clock> tnow() {
+  return std::chrono::system_clock::now();
+}
+static double tdiff(std::chrono::time_point<std::chrono::system_clock> tstart) {
+  return std::chrono::duration<double> (tnow() - tstart).count();
+}
+
 /**********************
  * A simple inline test
  **********************/
-int main(int argc, const char **argv) {
-  {
+double test_cxx(const char *fname)  {
+    std::cout << std::endl << "______________________" << std::endl;
     std::cout << "FROM C++" << std::endl;
-    PioInterface a(argv[1], 0, 0);
+    PioInterface a(fname, 0, 0);
     int ndim = a.nDim();
-    a.listFields(stdout);
+    int64_t ncell = a.nCell();
+    //a.listFields(stdout);
 
     auto center = a.center();
     std::cout << std::endl
@@ -498,30 +495,34 @@ int main(int argc, const char **argv) {
     std::cout << std::endl
               << "____________C++ VFRAC________________" << a.nMat()
               << std::endl;
-    int64_t iStart = 2927;
-    int64_t nCount = 10;
-    auto myVar = a.getMaterialVariable("chunk_vol", iStart, nCount);
-    for (int i = 0; i < 10; i++) {
-      std::cout << i + iStart << ":";
+    int64_t nCount = ncell;
+    int64_t iOffset = ncell/2;
+    auto t0 = tnow();
+    auto myVar = a.getMaterialVariable("chunk_vol", 0, nCount);
+    double diff = tdiff(t0);
+    for (int i = iOffset; i < iOffset + 10; i++) {
+      std::cout << i << ":";
       for (int j = 1; j <= a.nMat(); j++) {
         std::cout << " " << myVar[j][i];
       }
       std::cout << " centers=";
       for (int j = 0; j < a.nDim(); j++) {
-        std::cout << center[j][iStart + i] << " ";
+        std::cout << center[j][i] << " ";
       }
       std::cout << std::endl;
     }
-  }
-  std::cout << std::endl << "______________________" << std::endl;
-  { /* C test */
+    return diff;
+}
+double test_c(const char *fname)  { /* C test */
+    std::cout << std::endl << "______________________" << std::endl;
     int id;
     int ndim = -1;
     id = 22;
     std::cout << "FROM C" << std::endl;
-    pio_init(id, argv[1], 0);
+    pio_init(id, fname, 0);
     auto center = myFiles[id]->center();
     ndim = pio_nDim(id);
+    int64_t ncell = pio_nCell(id);
     std::cout << "  C: id=" << id << "; ndim=" << ndim << std::endl;
     double *xc1 = pio_get_range_d(id, "cell_center", 1, 4, 6);
     double *xc2 = pio_get_range_d(id, "cell_center", 2, 4, 6);
@@ -530,9 +531,12 @@ int main(int argc, const char **argv) {
     }
 
     std::cout << std::endl << "_____________Volume chunks 1-10:" << std::endl;
-    int64_t iStart = 2927;
+    int64_t iStart = ncell/2;
     int64_t nCount = 10;
+    auto t0 = tnow();
     double **mcv = pio_get_matvar_range_d(id, "chunk_vol", iStart, nCount);
+    double diff = tdiff(t0);
+    std::cout << "got the stuff " << diff << std::endl;
     for (int i = 0; i < 10; i++) {
       std::cout << i + iStart << ": ";
       for (int j = 1; j <= pio_nMat(id); j++) {
@@ -549,15 +553,21 @@ int main(int argc, const char **argv) {
     pio_release_d(xc1);
     pio_release_d(xc2);
     pio_release(id);
+    return diff;
+}
 
-    if (argc > 2) {
-      /* C sedond file test */
-      id = 22;
-      pio_init(id, argv[2], 0);
-      ndim = pio_nDim(id);
-      std::cout << "  C: id=" << id << "; ndim=" << ndim << std::endl;
-      pio_release(id);
-    }
+int main(int argc, const char **argv) {
+  if(1) {
+    auto diff = test_c(argv[1]);
+    std::cout << "  C test time = " << diff << std::endl;
+  }
+  if(1) {
+    auto diff = test_cxx(argv[1]);
+    std::cout << "C++ test time = " << diff << std::endl;
+  }
+  if(argc > 2) {
+    auto diff = test_c(argv[2]);
+    std::cout << "  C2 test time = " << diff << std::endl;
   }
   return 0;
 }
