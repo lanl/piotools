@@ -57,6 +57,10 @@ public:
     numcell_ = 0;
     fp = fopen(filename.c_str(), "rb");
     auto iRead = fread(&header_, sizeof(PIOHeader), 1, fp);
+    if (iRead != 1) {
+      std::cerr << "WARNING: read only " << iRead << " entries instead of 1"
+                << std::endl;
+    }
     if (verbose) {
       printf("%8s\n", header_.filetype);
     }
@@ -89,32 +93,42 @@ public:
   int ndim() { return ndim_; }
   int numcell() { return numcell_; }
 
-  std::vector<double> variableRead(std::string name, int index = 0) {
-    return readArray(name + "_" + std::to_string(index));
+  std::vector<double> variableRead(std::string name, int index = 0,
+                                   int64_t iStart = 0, int64_t nCount = -1) {
+    return readArray(name + "_" + std::to_string(index), iStart, nCount);
   }
 
-  std::vector<double> variable(std::string name, int index = 0) {
-    return variableRead(name, index);
+  std::vector<double> variable(std::string name, int index = 0,
+                               int64_t iStart = 0, int64_t nCount = -1) {
+    return variableRead(name, index, iStart, nCount);
   }
 
   template <typename T>
-  std::vector<T> variable(std::string name, int index = 0) {
-    auto base = variableRead(name, index);
+  std::vector<T> variable(std::string name, int index = 0, int64_t iStart = 0,
+                          int64_t nCount = -1) {
+    auto base = variableRead(name, index, iStart, nCount);
     return std::vector<T>(base.begin(), base.end());
   }
 
-  std::vector<double> readArray(std::string name) {
+  std::vector<double> readArray(std::string name, int64_t iStart = 0,
+                                int64_t nCount = -1) {
     std::vector<double> v;
     if (arrays.count(name) > 0) {
       auto h = arrays[name];
-      seek(h.position);
-      v.resize(h.length);
-      auto iRead = fread(v.data(), h.length, sizeof(double), fp);
+      if (nCount < 0) {
+        nCount = h.length;
+      }
+      seek(h.position + iStart);
+      v.resize(nCount);
+      auto iRead = fread(v.data(), sizeof(double), nCount, fp);
+      if (iRead != (size_t)nCount) {
+        std::cerr << "WARNING: read only " << iRead << " entries instead of "
+                  << nCount << std::endl;
+      }
     }
     return v;
   }
   void seekRaw(size_t offset) {
-    auto myOffset = static_cast<size_t>(offset);
     fseek(fp, static_cast<long int>(offset), SEEK_SET);
   }
   void seek(double offset) { seekRaw(8.0 * offset); }
@@ -149,6 +163,10 @@ private:
       size_t iRead;
       iRead = fread(name, sizeof(char), header_.lengthName, fp);
       iRead += fread(&a, sizeof(PIOArrayHeader), 1, fp);
+      if (iRead != 1 + header_.lengthName) {
+        std::cerr << "WARNING: read only " << iRead << " entries instead of "
+                  << 1 + header_.lengthName << std::endl;
+      }
       auto baseName = toString(name, header_.lengthName);
       auto nameStr = baseName + "_" + std::to_string(int(a.index));
       arrayOrder.push_back(nameStr);

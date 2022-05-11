@@ -117,34 +117,36 @@ public:
   }
 
   template <typename T>
-  std::vector<T> getVariable(const char *field, int index = 0) {
+  std::vector<T> getVariable(const char *field, int index = 0,
+                             int64_t iStart = 0, int64_t nCount = -1) {
     // field name *must* exactly match a field in PIO file
-    return pd->variable<T>(field, index);
+    return pd->variable<T>(field, index, iStart, nCount);
   }
 
   template <typename T>
-  std::vector<T> getField(const char *field, int index = 0) {
-    return pd->variable<T>(field, index);
+  std::vector<T> getField(const char *field, int index = 0, int64_t iStart = 0,
+                          int64_t nCount = -1) {
+    return pd->variable<T>(field, index, iStart, nCount);
   }
 
   template <typename T>
-  std::map<int, std::vector<T>> getField2D(const char *field) {
+  std::map<int, std::vector<T>>
+  getField2D(const char *field, int64_t iStart = 0, int64_t nCount = -1) {
     std::map<int, std::vector<T>> data;
     int w = getFieldWidth(field);
     for (int i = 1; i <= w; i++) {
-      data[i - 1] = pd->variable<T>(field, i);
+      data[i - 1] = pd->variable<T>(field, i, iStart, nCount);
     }
     return data;
   }
 
-  std::map<int, std::vector<double>>
-  getMaterialVariable(const char *field); //< gets a map of a material variable
+  std::map<int, std::vector<double>> getMaterialVariable(
+      const char *field, int64_t iStart = 0,
+      int64_t nCount = -1); //< gets a map of a material variable
 
   template <class T> const T *getUniqMap(const T *field);
   template <class T> const T **getUniqMap(const T **field, const int n);
   template <class T> void deleteArray(const T **field, const int n);
-
-  std::vector<std::shared_ptr<double>> getDChunkField(const char *field);
 
   // initializer takes dump file name and request for unique ids
   PioInterface(const char *name, const int uniq = 0, const int verbose = 0);
