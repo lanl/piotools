@@ -116,6 +116,10 @@ public:
     return s;
   }
 
+  bool variableExists(const char *field, const int index) {
+    return pd->variableExists(std::string(field), index);
+  }
+
   template <typename T>
   std::vector<T> getVariable(const char *field, int index = 0,
                              int64_t iStart = 0, int64_t nCount = -1) {
@@ -149,7 +153,8 @@ public:
   template <class T> void deleteArray(const T **field, const int n);
 
   // initializer takes dump file name and request for unique ids
-  PioInterface(const char *name, const int uniq = 0, const int verbose = 0);
+  PioInterface(const char *name, const int uniq = 0, const int verbose = 0,
+               const int nProcs = 1, const int myID = 0);
   ~PioInterface();
 };
 

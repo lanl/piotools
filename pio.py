@@ -487,7 +487,7 @@ if __name__ == "__main__":
         outName = "bigfile-dmp000000"
         myVars = ["chunk_vol", "chunk_eng"]
         outIndices = None
-        p.writeWithExpandedCsrArray(outName, myVars, outIndices)
+        # p.writeWithExpandedCsrArray(outName, myVars, outIndices)
 
         # # To write all CSR variables to file for all materials:
         # p.writeWithExpandedCsrArray(outName)
