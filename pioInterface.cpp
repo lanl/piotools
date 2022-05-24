@@ -27,6 +27,7 @@
 #include "pioInterface.h"
 #include "pioInterface.hpp"
 
+#define min(x,y) (x<y?x:y)
 /* simple timing functions */
 static std::chrono::time_point<std::chrono::system_clock> tnow() {
   return std::chrono::system_clock::now();
@@ -528,7 +529,7 @@ double test_cxx(const char *fname) {
   int64_t iStart = 0;
   iStart = ncell / 2;
   iOffset = 0;
-  nCount = 10;
+  nCount = min(10000, ncell - iStart);
   auto t0 = tnow();
   auto myVar = a.getMaterialVariable("chunk_vol", iStart, nCount);
   double diff = tdiff(t0);
@@ -565,6 +566,7 @@ double test_c(const char *fname) { /* C test */
   std::cout << std::endl << "_____________Volume chunks 1-10:" << std::endl;
   int64_t iStart = ncell / 2;
   int64_t nCount = 10;
+  nCount = min(10000, ncell - iStart);
   auto t0 = tnow();
   double **mcv = pio_get_range_matvar_d(id, "chunk_vol", iStart, nCount);
   double diff = (mcv ? tdiff(t0) : -1.0);

@@ -31,11 +31,13 @@ program test
   ndim = pio_nDim(id)
   iStart = ncell/2+1
   iCount = 10
+  iCount = min(10000, ncell - iStart);
+  
   !   center1 => pio_get_range_d(ID, "cell_center", 1, iStart, iCount)
   !   center2 => pio_get_range_d(ID, "cell_center", 2, iStart, iCount)
   center1 => pio_get_d(ID, "cell_center", 1)
   center2 => pio_get_d(ID, "cell_center", 2)
-  do i=1,iCount
+  do i=1,min(10,iCount)
      write(*,*) i + iStart-1, ":", center1(i), " ", center2(i)
   end do
 
@@ -46,7 +48,7 @@ program test
 
   write(*,*) "_____________Volume chunks 1-10: dt=", t0
   nMat = size(fvol%data, 1)
-  do i = 1, iCount
+  do i = 1,min(10,iCount)
      !write(*,"(i8,' ',2(G20.12,1x), 2(f20.8,1x))") i+iStart-1, &
      !(fvol%data(j)%p(i), j=1,nMat), center1(i+iStart-1), center2(i+iStart-1)
      write(*,*) i+iStart-1, (fvol%data(j)%p(i), j=1,nMat), center1(i+iStart-1), center2(i+iStart-1)
