@@ -34,6 +34,13 @@ module pio_interface
      type(c_ptr) :: base
      type(pio_ptr_d_t), dimension(:), pointer :: data
   end type pio_2d_t
+
+  interface pio_release
+     module procedure pio_release_main
+     module procedure pio_release_i64
+     module procedure pio_release_d
+     module procedure pio_release_2d
+  end interface pio_release
   
   interface
      subroutine pio_init_c(ID, fname, verbose) BIND(C, name="pio_init")
@@ -44,11 +51,11 @@ module pio_interface
        integer(c_int), VALUE, intent(in) :: verbose
      end subroutine pio_init_c
 
-     subroutine pio_release(ID) BIND(C, name="pio_release")
+     subroutine pio_release_c(ID) BIND(C, name="pio_release")
        use iso_c_binding
        implicit none
        integer(c_int), VALUE, intent(in) :: id
-     end subroutine pio_release
+     end subroutine pio_release_c
 
      subroutine pio_release_d_c(cptr) BIND(C, name="pio_release_d")
        use iso_c_binding
@@ -122,7 +129,7 @@ module pio_interface
        integer(c_int64_t), VALUE, intent(in) :: nCount
      end function pio_get_range_d_c
 
-     function pio_get_i64_c(ID, var, index) BIND(C, name="pio_get_d")
+     function pio_get_i64_c(ID, var, index) BIND(C, name="pio_get_i64")
        use iso_c_binding
        implicit none
        type(c_ptr) :: pio_get_i64_c
@@ -131,7 +138,7 @@ module pio_interface
        integer(c_int), VALUE, intent(in) :: index
      end function pio_get_i64_c
        
-     function pio_get_range_i64_c(ID, var, index, iStart, nCount) BIND(C, name="pio_get_d")
+     function pio_get_range_i64_c(ID, var, index, iStart, nCount) BIND(C, name="pio_get_range_i64")
        use iso_c_binding
        implicit none
        type(c_ptr) :: pio_get_range_i64_c
@@ -362,4 +369,10 @@ contains
     return
   end subroutine pio_release_2d
 
+  subroutine pio_release_main(ID)
+    use iso_c_binding
+    implicit none
+    integer(c_int), intent(in) :: id
+    call pio_release_c(id)
+  end subroutine pio_release_main
 end module pio_interface

@@ -54,9 +54,9 @@ program test
      write(*,*) i+iStart-1, (fvol%data(j)%p(i), j=1,nMat), center1(i+iStart-1), center2(i+iStart-1)
   end do
 
-  call pio_release_2d(fvol)
-  call pio_release_d(center1);
-  call pio_release_d(center2);
+  call pio_release(fvol)
+  call pio_release(center1);
+  call pio_release(center2);
   call pio_release(id);
 end program test
 
