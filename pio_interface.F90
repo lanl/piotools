@@ -43,13 +43,25 @@ module pio_interface
   end interface pio_release
   
   interface
-     subroutine pio_init_c(ID, fname, verbose) BIND(C, name="pio_init")
+     subroutine pio_init_c(ID, fname, verbose, bare) BIND(C, name="pio_init")
        use iso_c_binding
        implicit none
        integer(c_int), VALUE, intent(in) :: ID
        character(c_char), intent(in) :: fname(1)
        integer(c_int), VALUE, intent(in) :: verbose
+       integer(c_int), VALUE, intent(in) :: bare
      end subroutine pio_init_c
+
+     subroutine pio_init_par_c(ID, fname, nprocs, myid, verbose, bare) BIND(C, name="pio_init_par")
+       use iso_c_binding
+       implicit none
+       integer(c_int), VALUE, intent(in) :: ID
+       character(c_char), intent(in) :: fname(1)
+       integer(c_int), VALUE, intent(in) :: nprocs
+       integer(c_int), VALUE, intent(in) :: myid
+       integer(c_int), VALUE, intent(in) :: verbose
+       integer(c_int), VALUE, intent(in) :: bare
+     end subroutine pio_init_par_c
 
      subroutine pio_release_c(ID) BIND(C, name="pio_release")
        use iso_c_binding
@@ -205,14 +217,28 @@ contains
     values = pio_get_range_matvar(ID, var, one, pio_ncell(ID))
   end function pio_get_matvar    
 
-  subroutine pio_init(ID, fname, verbose)
+  subroutine pio_init(ID, fname, verbose, bare)
     use iso_c_binding
     implicit none
     integer,  intent(in) :: ID
     character*(*), intent(in) :: fname
     integer, intent(in) :: verbose
-    call pio_init_c(ID, C0(fname), verbose)
+    integer, intent(in) :: bare
+    write(*,*) 'bare=', bare   
+    call pio_init_c(ID, C0(fname), verbose, bare)
   end subroutine pio_init
+  
+  subroutine pio_init_par(ID, fname, nprocs, myid, verbose, bare) 
+    use iso_c_binding
+    implicit none
+    integer, intent(in) :: ID
+    character*(*), intent(in) :: fname
+    integer, intent(in) :: nprocs
+    integer, intent(in) :: myid
+    integer, intent(in) :: verbose
+    integer, intent(in) :: bare
+    call pio_init_par_c(ID, C0(fname), nprocs, myid, verbose, bare)
+  end subroutine pio_init_par
 
   integer(c_int64_t) function pio_width(ID, var)
     use iso_c_binding

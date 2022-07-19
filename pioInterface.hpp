@@ -53,6 +53,7 @@ private:
   std::vector<int64_t>
       matStartIndex_; //< Index at which materials start for each cell
   int verbose_;       //< print verbose information
+  bool bare_;         //< is this a bare interface
 
   // private functions
   void updateIMap();
@@ -154,7 +155,7 @@ public:
 
   // initializer takes dump file name and request for unique ids
   PioInterface(const char *name, const int uniq = 0, const int verbose = 0,
-               const int nProcs = 1, const int myID = 0);
+               const int nProcs = 1, const int myID = 0, const bool bare = false);
   ~PioInterface();
 };
 

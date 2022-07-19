@@ -293,8 +293,9 @@ PioInterface::getMaterialVariable(const char *field, int64_t iStart,
 
 // initializer takes dump file name and request for unique ids
 PioInterface::PioInterface(const char *name, const int uniq, const int verbose,
-                           const int nProcs, const int myID)
-    : uniqMap_(nullptr), dXyz_(nullptr), iMap(nullptr), verbose_(verbose) {
+                           const int nProcs, const int myID, const bool bare)
+  : uniqMap_(nullptr), dXyz_(nullptr), iMap(nullptr), verbose_(verbose), bare_(bare) {
+  
   try {
     uniq_ = uniq;
     if (verbose) {
@@ -308,18 +309,20 @@ PioInterface::PioInterface(const char *name, const int uniq, const int verbose,
     if (verbose) {
       std::cout << "getting levels\n";
     }
-    level_ = getField<int>("cell_level");
-    updateNLevel(); // Note this requires the level array to be gathered first
+    if ( ! bare_ ) {
+      level_ = getField<int>("cell_level");
+      updateNLevel(); // Note this requires the level array to be gathered first
+      
+      if (verbose) {
+	std::cout << "getting centers\n";
+      }
+      
+      center_ = getField2D<double>("cell_center");
 
-    if (verbose) {
-      std::cout << "getting centers\n";
-    }
-    center_ = getField2D<double>("cell_center");
-
-    if (verbose) {
-      std::cout << "getting daughters\n";
-    }
-    daughter_ = getField<int64_t>("cell_daughter");
+      if (verbose) {
+	std::cout << "getting daughters\n";
+      }
+      daughter_ = getField<int64_t>("cell_daughter");
 
     // Get material variable information
     if (verbose) {
@@ -327,28 +330,30 @@ PioInterface::PioInterface(const char *name, const int uniq, const int verbose,
     }
     nMat_ = getFieldWidth("matdef");
     matIds_ = getField<int>("chunk_mat");
-    matStartIndex_ = getField<int64_t>("chunk_nummat");
-    matStartIndex_.resize(nCell_ + 1);
-    {
-      // Shift the start indices
-      int64_t startIdx;
-      startIdx = 0;
-      for (int64_t i = 0; i < nCell_; i++) {
-        int64_t n = matStartIndex_[i];
-        matStartIndex_[i] = startIdx;
-        startIdx += n;
+      matStartIndex_ = getField<int64_t>("chunk_nummat");
+      matStartIndex_.resize(nCell_ + 1);
+      {
+	// Shift the start indices
+	int64_t startIdx;
+	startIdx = 0;
+	for (int64_t i = 0; i < nCell_; i++) {
+	  int64_t n = matStartIndex_[i];
+	  matStartIndex_[i] = startIdx;
+	  startIdx += n;
+	}
+	matStartIndex_[nCell_] = startIdx;
       }
-      matStartIndex_[nCell_] = startIdx;
-    }
 
-    if (verbose) {
-      std::cout << "updating Dxyz\n";
-    }
-    updateDXyz();
-    if (uniq)
-      updateUniqMap();
-    if (verbose) {
-      std::cout << "done\n";
+      if (verbose) {
+	std::cout << "updating Dxyz\n";
+      }
+      updateDXyz();
+      
+      if (uniq)
+	updateUniqMap();
+      if (verbose) {
+	std::cout << "done\n";
+      }
     }
 
   } catch (...) {
@@ -386,10 +391,20 @@ void pio_release(const int ID) {
   }
 }
 
-void pio_init(const int ID, const char *fname, const int verbose) {
+void pio_init(const int ID, const char *fname,
+	      const int verbose, const int bare) {
   pio_release(ID);
+  bool bare_ = bare;
   myFiles.insert(std::pair<const int, std::shared_ptr<PioInterface>>(
-      ID, std::make_shared<PioInterface>(fname, 0, verbose)));
+     ID, std::make_shared<PioInterface>(fname, 0, verbose, bare_)));
+  return;
+}
+  
+void pio_init_par(const int ID, const char *fname, const int nprocs, const int myid, const int verbose, const int bare) {
+  pio_release(ID);
+  bool bare_ = bare;
+  myFiles.insert(std::pair<const int, std::shared_ptr<PioInterface>>(
+       ID, std::make_shared<PioInterface>(fname, 0, verbose, nprocs, myid, bare_)));
   return;
 }
 

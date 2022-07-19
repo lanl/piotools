@@ -26,7 +26,8 @@ extern "C" {
  * Version: 220509: initial definition
  **/
 
-extern void pio_init(const int ID, const char *fname, const int verbose);
+extern void pio_init(const int ID, const char *fname, const int verbose, const int bare);
+extern void pio_init_par(const int ID, const char *fname, const int nprocs, const int myid, const int verbose, const int bare);
 extern void pio_release(const int ID);
 
 extern int64_t pio_nCell(const int ID);
