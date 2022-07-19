@@ -168,10 +168,13 @@ PioInterface::~PioInterface() { //< our destructor!
     delete pd;
   if (uniqMap_)
     delete[] uniqMap_;
-  for (int i = 0; i <= nLevel_; i++) {
-    delete[] dXyz_[i];
+
+  if (dXyz_) {
+    for (int i = 0; i <= nLevel_; i++) {
+      if ( dXyz_[i]) delete[] dXyz_[i];
+    }
+    delete[] dXyz_;
   }
-  delete[] dXyz_;
   if (iMap)
     releaseMapByLevel();
 }
