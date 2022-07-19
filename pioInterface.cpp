@@ -401,7 +401,7 @@ void pio_init_range(const int ID, const char *fname, const int verbose,
   return;
 }
 
-int pio_nCell(const int ID) { return myFiles[ID]->nCell(); }
+int64_t pio_nCell(const int ID) { return myFiles[ID]->nCell(); }
 
 int pio_nDim(const int ID) { return myFiles[ID]->nDim(); }
 
@@ -421,8 +421,8 @@ double *pio_center(const int ID, int index) {
   return myFiles[ID]->center()[index].data();
 }
 
-double *pio_get_range_d(int ID, const char *var_name, int index, int64_t iStart,
-                        int64_t nCount) {
+double *pio_get_range_d(int ID, const char *var_name, const int index, const int64_t iStart,
+                        const int64_t nCount) {
   auto &pd = myFiles[ID];
   auto data = pd->getField<double>(var_name, index, iStart, nCount);
   return deepCopy<double>(data);

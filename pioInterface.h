@@ -29,7 +29,7 @@ extern "C" {
 extern void pio_init(const int ID, const char *fname, const int verbose);
 extern void pio_release(const int ID);
 
-extern int pio_nCell(const int ID);
+extern int64_t pio_nCell(const int ID);
 extern int pio_nDim(const int ID);
 extern int pio_nMat(const int ID);
 
@@ -42,8 +42,8 @@ extern double *pio_center(const int ID, int index);
 extern bool pio_exists(const int ID, const char *var, const int index);
 
 extern double *pio_get_d(const int ID, const char *var_name, const int index);
-extern double *pio_get_range_d(int ID, const char *var_name, int index,
-                               int64_t start, int64_t nCount);
+extern double *pio_get_range_d(int ID, const char *var_name, const int index,
+                               const int64_t start, const int64_t nCount);
 extern void pio_release_d(double *ptr);
 
 extern int64_t *pio_get_i64(const int ID, const char *var_name,

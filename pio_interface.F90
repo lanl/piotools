@@ -102,7 +102,7 @@ module pio_interface
        character(c_char), intent(in) :: var(1)
      end function pio_width_c
 
-     integer(c_int) function pio_length_c(ID, var) BIND(C, name="pio_length")
+     integer(c_int64_t) function pio_length_c(ID, var) BIND(C, name="pio_length")
        use iso_c_binding
        implicit none
        integer(c_int), VALUE, intent(in) :: id
