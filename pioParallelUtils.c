@@ -22,7 +22,11 @@ int pio_nprocs() { return nprocs; }
 
 int pio_myrank() { return myrank; }
 
-void pio_init_comm(int id) { myworld = MPI_Comm_f2c(id); }
+void pio_init_comm(int id) {
+  myworld = MPI_Comm_f2c(id);
+  (void) MPI_Comm_size(myworld, &nprocs);
+  (void) MPI_Comm_rank(myworld, &myrank);
+}
 
 void pio_exit_comm() { myworld = NULL; }
 

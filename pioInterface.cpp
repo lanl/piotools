@@ -264,7 +264,7 @@ PioInterface::getMaterialVariable(const char *field, int64_t iStart,
   }
 
   // Compute offset and count and get the raw data
-  int64_t matOffset = matStartIndexLocal_[iStart] + matVar_offset_;
+  int64_t matOffset = matVar_offset_ + matStartIndexLocal_[iStart];
   int64_t matCount =
       matStartIndexLocal_[iStart + nCount] - matStartIndexLocal_[iStart];
   auto data = getField<double>(field, 0, matOffset, matCount);
@@ -289,7 +289,7 @@ PioInterface::getMaterialVariable(const char *field, int64_t iStart,
       for (int64_t indexMat = matStartIndexLocal_[icell];
            indexMat < matStartIndexLocal_[icell + 1]; indexMat++) {
         int idMat = matIds_[indexMat];
-        rMap[idMat][icell - iStart] = data[indexMat - matOffset];
+        rMap[idMat][icell - iStart] = data[indexMat];
       }
     }
     if (verbose_) {
@@ -396,12 +396,11 @@ void PioInterface::initMaterialIndices(int64_t iStart, int64_t nCount) {
   if (nProcs_ > 1) { // Shift the start index in material variable
     std::vector<int64_t> procScan(nProcs_);
     // Get sums for all processors
-    (void)pio_Allgather_i64(matVar_count_, procScan.data());
-    for (int i = 0; i < myRank_; i++) {
-      matVar_offset_ += procScan[i];
+    (void) pio_Allgather_i64(matVar_count_, procScan.data());
+    for (int iProc = 0; iProc < myRank_; iProc++) {
+      matVar_offset_ += procScan[iProc];
     }
   }
-
   matIds_ = getField<int>("chunk_mat", 0, matVar_offset_, matVar_count_);
 }
 
@@ -454,6 +453,7 @@ void pio_init_par(const int ID, const char *fname, const int verbose,
 void pio_init_materials(const int ID, const int64_t iStart,
                         const int64_t nCount) {
   auto &pd = myFiles[ID];
+  // Initialize material indices
   pd->initMaterialIndices(iStart, nCount);
 }
 
@@ -506,7 +506,6 @@ double **pio_get_range_matvar_d(int ID, const char *field, int64_t iStart,
                                 int64_t nCount) {
   double **ret;
   auto &pd = myFiles[ID];
-  pd->initMaterialIndices(iStart, nCount);
   int nMat = pd->nMat();
   auto myVar = pd->getMaterialVariable(field, iStart, nCount);
   ret = (double **)calloc(nMat + 1, myVar[1].size() * sizeof(double *));

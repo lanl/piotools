@@ -208,7 +208,6 @@ contains
     integer :: i, ncell, nmat
 
     nmat = pio_nmat(ID)
-    write(*,*) 'ftn nmat=', nmat
     values%base = pio_get_range_matvar_d(ID, C0(var), iStart-1, nCount)
     allocate(values%data(nmat))
     do i = 1, nmat
@@ -223,6 +222,9 @@ contains
     integer, intent(in) :: ID
     character*(*) :: var
     integer(kind=c_int64_t), parameter :: one = 1
+#ifdef ENABLE_MPI    
+    write(*,*) 'WARNING: This routine only works with one MPI process'
+#endif
     values = pio_get_range_matvar(ID, var, one, pio_ncell(ID))
   end function pio_get_matvar    
 
