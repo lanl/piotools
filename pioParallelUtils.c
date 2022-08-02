@@ -5,15 +5,13 @@
 // No MPI
 int pio_nprocs() { return 1; }
 int pio_myrank() { return 0; }
-void pio_init_comm(int id) { }  
-void pio_exit_comm() { }  
-void pio_Allgather_i64(int64_t myValue, int64_t *result) {
-  *result = myValue;
-}
+void pio_init_comm(int id) {}
+void pio_exit_comm() {}
+void pio_Allgather_i64(int64_t myValue, int64_t *result) { *result = myValue; }
 
 #else
-#include <stdlib.h>
 #include "mpi.h"
+#include <stdlib.h>
 
 static int nprocs = 1;
 static int myrank = 0;
@@ -24,19 +22,14 @@ int pio_nprocs() { return nprocs; }
 
 int pio_myrank() { return myrank; }
 
-void pio_init_comm(int id) {
-  myworld = MPI_Comm_f2c(id);
-}
+void pio_init_comm(int id) { myworld = MPI_Comm_f2c(id); }
 
-void pio_exit_comm() { 
-  myworld = NULL;
-}
+void pio_exit_comm() { myworld = NULL; }
 
 int pio_Allgather_i64(int64_t myValue, int64_t *result) {
-  return MPI_Allgather(&myValue, 1, MPI_INTEGER8, result, 1, MPI_INTEGER8, myworld);
+  return MPI_Allgather(&myValue, 1, MPI_INTEGER8, result, 1, MPI_INTEGER8,
+                       myworld);
 }
 #endif
 
 #endif
-
-

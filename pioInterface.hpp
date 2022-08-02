@@ -26,7 +26,6 @@
 
 #include "pio.hpp"
 
-
 typedef struct i2_t {
   int64_t id;
   int64_t index;
@@ -45,19 +44,19 @@ private:
   std::vector<int> level_;        //< level of each cell [nCell]
   std::vector<int64_t> daughter_; //< daughter of each cell [nCell]
   std::map<int, std::vector<double>>
-      center_;              //< center of each cell [nDim][nCell]
-  double **dXyz_;           //< cell size at each level [nLevel]
-  int64_t **iMap;           //< mapping of cells by level
-  PIO *pd;                  //< PIO data struct for dmp file
-  int nMat_;                //< Number of materials
-  int64_t matVar_offset_;   //< offset for reading material variables
-  int64_t matVar_count_;    //< number of entries to read for material variables
+      center_;            //< center of each cell [nDim][nCell]
+  double **dXyz_;         //< cell size at each level [nLevel]
+  int64_t **iMap;         //< mapping of cells by level
+  PIO *pd;                //< PIO data struct for dmp file
+  int nMat_;              //< Number of materials
+  int64_t matVar_offset_; //< offset for reading material variables
+  int64_t matVar_count_;  //< number of entries to read for material variables
   std::vector<int64_t>
-      matStartIndexLocal_; //< Index at which materials start for each cell
+      matStartIndexLocal_;  //< Index at which materials start for each cell
   std::vector<int> matIds_; //< Array of material IDs
-  int verbose_;       //< print verbose information
-  bool bare_;         //< is this a bare interface
-  
+  int verbose_;             //< print verbose information
+  bool bare_;               //< is this a bare interface
+
   int nProcs_ = 1;
   int myRank_ = 0;
 
@@ -97,8 +96,8 @@ public:
   getFieldWidth(const char *field); //< Width / Number of instances of a field
   int64_t getFieldLength(const char *field); //< Length of a field
 
-  void initMaterialIndices(int64_t iStart=0, int64_t nCount=-1);
-  
+  void initMaterialIndices(int64_t iStart = 0, int64_t nCount = -1);
+
   std::vector<const char *> getVCField(const char *field, int index = 0) {
     /** for any type other than double we need to get double data and then
      * translate **/
@@ -163,7 +162,7 @@ public:
 
   // initializer takes dump file name and request for unique ids
   PioInterface(const char *name, const int verbose = 0,
-	       const bool bare = false);
+               const bool bare = false);
   ~PioInterface();
 };
 

@@ -96,7 +96,7 @@ public:
   bool variableExists(const std::string name, const int index) {
     return (arrays.count(name + "_" + std::to_string(index)) > 0);
   }
-  
+
   std::vector<double> variableRead(std::string name, int index = 0,
                                    int64_t iStart = 0, int64_t nCount = -1) {
     return readArray(name + "_" + std::to_string(index), iStart, nCount);

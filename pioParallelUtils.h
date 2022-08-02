@@ -8,6 +8,3 @@ extern void pio_exit_comm();
 extern void pio_Allgather_i64(int64_t myValue, int64_t *result);
 
 #endif
-
-
-
