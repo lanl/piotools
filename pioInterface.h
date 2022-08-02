@@ -20,14 +20,16 @@
 extern "C" {
 #endif
 #include <stdlib.h>
-
 /**
  * C functions defined in pioInterface()
  * Version: 220509: initial definition
  **/
 
+#include "pioParallelUtils.h"
+  
 extern void pio_init(const int ID, const char *fname, const int verbose, const int bare);
-extern void pio_init_par(const int ID, const char *fname, const int nprocs, const int myid, const int verbose, const int bare);
+extern void pio_init_par(const int ID, const char *fname, const int verbose, const int bare, int in_comm);
+extern void pio_init_materials(const int ID, const int64_t iStart, const int64_t nCount);
 extern void pio_release(const int ID);
 
 extern int64_t pio_nCell(const int ID);

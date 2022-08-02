@@ -24,8 +24,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "pioInterface.h"
 #include "pioInterface.hpp"
+#include "pioInterface.h"
 
 #define min(x,y) (x<y?x:y)
 /* simple timing functions */
@@ -254,13 +254,17 @@ std::map<int, std::vector<double>>
 PioInterface::getMaterialVariable(const char *field, int64_t iStart,
                                   int64_t nCount) {
   std::map<int, std::vector<double>> rMap;
+
+  // Initialize the material indices
+  this->initMaterialIndices(iStart, nCount);
+  
   if (nCount < 0) {
     nCount = nCell_;
   }
 
   // Compute offset and count and get the raw data
-  int64_t matOffset = matStartIndex_[iStart];
-  int64_t matCount = matStartIndex_[iStart + nCount] - matOffset;
+  int64_t matOffset = matStartIndexLocal_[iStart] + matVar_offset_;
+  int64_t matCount = matStartIndexLocal_[iStart + nCount] - matStartIndexLocal_[iStart];
   auto data = getField<double>(field, 0, matOffset, matCount);
   if (data.size() == 0) {
     std::cout << "Unable to find Field: " << field << std::endl;
@@ -280,8 +284,8 @@ PioInterface::getMaterialVariable(const char *field, int64_t iStart,
   } else {
     // cycle through cells and fill in fields
     for (int64_t icell = iStart; icell < iStart + nCount; icell++) {
-      for (int64_t indexMat = matStartIndex_[icell];
-           indexMat < matStartIndex_[icell + 1]; indexMat++) {
+      for (int64_t indexMat = matStartIndexLocal_[icell];
+           indexMat < matStartIndexLocal_[icell + 1]; indexMat++) {
         int idMat = matIds_[indexMat];
         rMap[idMat][icell - iStart] = data[indexMat - matOffset];
       }
@@ -295,12 +299,14 @@ PioInterface::getMaterialVariable(const char *field, int64_t iStart,
 }
 
 // initializer takes dump file name and request for unique ids
-PioInterface::PioInterface(const char *name, const int uniq, const int verbose,
-                           const int nProcs, const int myID, const bool bare)
+PioInterface::PioInterface(const char *name, const int verbose,
+                           const bool bare)
   : uniqMap_(nullptr), dXyz_(nullptr), iMap(nullptr), verbose_(verbose), bare_(bare) {
   
   try {
-    uniq_ = uniq;
+    // Unique is turned off
+    uniq_ = 0;
+    
     if (verbose) {
       std::cout << "getting piodata\n";
     }
@@ -309,9 +315,13 @@ PioInterface::PioInterface(const char *name, const int uniq, const int verbose,
     nDim_ = pd->ndim();
     nCell_ = pd->numcell();
 
+    nProcs_ = pio_nprocs();
+    myRank_ = pio_myrank();
+
     if (verbose) {
       std::cout << "getting levels\n";
     }
+
     if ( ! bare_ ) {
       level_ = getField<int>("cell_level");
       updateNLevel(); // Note this requires the level array to be gathered first
@@ -331,40 +341,66 @@ PioInterface::PioInterface(const char *name, const int uniq, const int verbose,
     if (verbose) {
       std::cout << "updating material information\n";
     }
-    nMat_ = getFieldWidth("matdef");
-    matIds_ = getField<int>("chunk_mat");
-      matStartIndex_ = getField<int64_t>("chunk_nummat");
-      matStartIndex_.resize(nCell_ + 1);
-      {
-	// Shift the start indices
-	int64_t startIdx;
-	startIdx = 0;
-	for (int64_t i = 0; i < nCell_; i++) {
-	  int64_t n = matStartIndex_[i];
-	  matStartIndex_[i] = startIdx;
-	  startIdx += n;
-	}
-	matStartIndex_[nCell_] = startIdx;
-      }
 
       if (verbose) {
 	std::cout << "updating Dxyz\n";
       }
       updateDXyz();
       
-      if (uniq)
+      if (uniq_)
 	updateUniqMap();
       if (verbose) {
 	std::cout << "done\n";
       }
     }
-
+    
   } catch (...) {
     std::cerr << "\n"
               << "Following Error ocured while trying to read " << name << "\n"
               << "\n";
     exit(2);
   }
+}
+
+void PioInterface::initMaterialIndices(int64_t iStart, int64_t nCount) {
+  static int inited=0;
+  
+  if ( inited ) return;
+  inited = 1;
+    
+  // Get number of materials
+  nMat_ = getFieldWidth("matdef");
+
+  // Reset cell count if needed
+  if (nCount < 0) {
+    nCount = nCell_;
+  }
+
+  // Read in number of materials per cell on our processor
+  matStartIndexLocal_ = getField<int64_t>("chunk_nummat", 0, iStart, nCount);
+
+  matVar_count_ = 0;
+  for (int64_t index=0; index<nCount; index++) {
+    auto val = matStartIndexLocal_[index];
+    matStartIndexLocal_[index] = matVar_count_;
+    matVar_count_ += val;
+  }
+  matStartIndexLocal_.resize(nCount + 1);
+  matStartIndexLocal_[nCount] = matVar_count_;
+    
+  matVar_offset_ = 0;
+  
+  if (nProcs_ > 1) { // Shift the start index in material variable
+    std::vector<int64_t> procScan(nProcs_);
+    // Get sums for all processors
+    (void) pio_Allgather_i64(matVar_count_, procScan.data());
+    for(int i=0; i<myRank_; i++) {
+      matVar_offset_ += procScan[i];
+    }
+  }
+    
+  matIds_ = getField<int>("chunk_mat", 0, matVar_offset_, matVar_count_);
+  
 }
 
 std::vector<std::string> PioInterface::getFieldNames() {
@@ -399,31 +435,29 @@ void pio_init(const int ID, const char *fname,
   pio_release(ID);
   bool bare_ = bare;
   myFiles.insert(std::pair<const int, std::shared_ptr<PioInterface>>(
-     ID, std::make_shared<PioInterface>(fname, 0, verbose, bare_)));
+ ID, std::make_shared<PioInterface>(fname, verbose, bare_)));
   return;
 }
   
-void pio_init_par(const int ID, const char *fname, const int nprocs, const int myid, const int verbose, const int bare) {
-  pio_release(ID);
+void pio_init_par(const int ID, const char *fname, const int verbose, const int bare, int in_comm) {
   bool bare_ = bare;
+  pio_release(ID);
+  pio_init_comm(in_comm);
   myFiles.insert(std::pair<const int, std::shared_ptr<PioInterface>>(
-       ID, std::make_shared<PioInterface>(fname, 0, verbose, nprocs, myid, bare_)));
+ ID, std::make_shared<PioInterface>(fname, verbose, bare_)));
   return;
 }
 
-void pio_init_range(const int ID, const char *fname, const int verbose,
-                    const int nProcs, const int myID) {
-  pio_release(ID);
-  myFiles.insert(std::pair<const int, std::shared_ptr<PioInterface>>(
-      ID, std::make_shared<PioInterface>(fname, 0, verbose, nProcs, myID)));
-  return;
+void pio_init_materials(const int ID, const int64_t iStart, const int64_t nCount) {
+  auto &pd = myFiles[ID];
+  pd->initMaterialIndices(iStart, nCount);
 }
 
 int64_t pio_nCell(const int ID) { return myFiles[ID]->nCell(); }
 
 int pio_nDim(const int ID) { return myFiles[ID]->nDim(); }
 
-int pio_nMat(const int ID) { return myFiles[ID]->nMat(); }
+int pio_nMat(const int ID) {  return myFiles[ID]->nMat();}
 
 int64_t pio_length(const int ID, const char *field) {
   return myFiles[ID]->getFieldLength(field);
@@ -468,6 +502,7 @@ double **pio_get_range_matvar_d(int ID, const char *field, int64_t iStart,
                                 int64_t nCount) {
   double **ret;
   auto &pd = myFiles[ID];
+  pd->initMaterialIndices(iStart, nCount);
   int nMat = pd->nMat();
   auto myVar = pd->getMaterialVariable(field, iStart, nCount);
   ret = (double **)calloc(nMat + 1, myVar[1].size() * sizeof(double *));
@@ -515,6 +550,7 @@ void pio_release_2d_d(double **ptr, int nMat) {
 
 double pio_now() { return tdiff(_tstart); }
 }
+
 
 #ifdef DOPIOMAIN
 
@@ -639,4 +675,5 @@ int main(int argc, const char **argv) {
   }
   return 0;
 }
+
 #endif

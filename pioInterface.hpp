@@ -26,6 +26,7 @@
 
 #include "pio.hpp"
 
+
 typedef struct i2_t {
   int64_t id;
   int64_t index;
@@ -49,11 +50,16 @@ private:
   int64_t **iMap;           //< mapping of cells by level
   PIO *pd;                  //< PIO data struct for dmp file
   int nMat_;                //< Number of materials
-  std::vector<int> matIds_; //< Array of material IDs
+  int64_t matVar_offset_;   //< offset for reading material variables
+  int64_t matVar_count_;    //< number of entries to read for material variables
   std::vector<int64_t>
-      matStartIndex_; //< Index at which materials start for each cell
+      matStartIndexLocal_; //< Index at which materials start for each cell
+  std::vector<int> matIds_; //< Array of material IDs
   int verbose_;       //< print verbose information
   bool bare_;         //< is this a bare interface
+  
+  int nProcs_ = 1;
+  int myRank_ = 0;
 
   // private functions
   void updateIMap();
@@ -75,7 +81,7 @@ public:
 
   int nMat() { return nMat_; }
   std::vector<int> &matIds() { return matIds_; }
-  std::vector<int64_t> &matStartIndex() { return matStartIndex_; }
+  std::vector<int64_t> &matStartIndex() { return matStartIndexLocal_; }
 
   int nLevel() { return nLevel_; }
   const double **dXyz() { return (const double **)(dXyz_); }
@@ -91,6 +97,8 @@ public:
   getFieldWidth(const char *field); //< Width / Number of instances of a field
   int64_t getFieldLength(const char *field); //< Length of a field
 
+  void initMaterialIndices(int64_t iStart=0, int64_t nCount=-1);
+  
   std::vector<const char *> getVCField(const char *field, int index = 0) {
     /** for any type other than double we need to get double data and then
      * translate **/
@@ -154,8 +162,8 @@ public:
   template <class T> void deleteArray(const T **field, const int n);
 
   // initializer takes dump file name and request for unique ids
-  PioInterface(const char *name, const int uniq = 0, const int verbose = 0,
-               const int nProcs = 1, const int myID = 0, const bool bare = false);
+  PioInterface(const char *name, const int verbose = 0,
+	       const bool bare = false);
   ~PioInterface();
 };
 

@@ -26,6 +26,8 @@ module pio_interface
 
   public
 
+  type(c_ptr), private :: my_c_comm
+  
   type :: pio_ptr_d_t
      real(c_double), pointer, dimension(:) :: p
   end type pio_ptr_d_t
@@ -52,15 +54,14 @@ module pio_interface
        integer(c_int), VALUE, intent(in) :: bare
      end subroutine pio_init_c
 
-     subroutine pio_init_par_c(ID, fname, nprocs, myid, verbose, bare) BIND(C, name="pio_init_par")
+     subroutine pio_init_par_c(ID, fname, verbose, bare, mycomm) BIND(C, name="pio_init_par")
        use iso_c_binding
        implicit none
        integer(c_int), VALUE, intent(in) :: ID
        character(c_char), intent(in) :: fname(1)
-       integer(c_int), VALUE, intent(in) :: nprocs
-       integer(c_int), VALUE, intent(in) :: myid
        integer(c_int), VALUE, intent(in) :: verbose
        integer(c_int), VALUE, intent(in) :: bare
+       integer(c_int), VALUE, intent(in) :: mycomm
      end subroutine pio_init_par_c
 
      subroutine pio_release_c(ID) BIND(C, name="pio_release")
@@ -75,6 +76,13 @@ module pio_interface
        type(c_ptr), VALUE :: cptr
      end subroutine pio_release_d_c
 
+     subroutine pio_init_materials(ID, iStart, nCount) Bind(C, name="pio_init_materials")
+       use iso_c_binding
+       integer(c_int), VALUE, intent(in) :: id
+       integer(c_int64_t), VALUE, intent(in) :: iStart
+       integer(c_int64_t), VALUE, intent(in) :: nCount
+     end subroutine pio_init_materials
+     
      subroutine pio_release_i64_c(cptr) BIND(C, name="pio_release_i64")
        use iso_c_binding
        implicit none
@@ -200,6 +208,7 @@ contains
     integer :: i, ncell, nmat
 
     nmat = pio_nmat(ID)
+    write(*,*) 'ftn nmat=', nmat
     values%base = pio_get_range_matvar_d(ID, C0(var), iStart-1, nCount)
     allocate(values%data(nmat))
     do i = 1, nmat
@@ -218,26 +227,25 @@ contains
   end function pio_get_matvar    
 
   subroutine pio_init(ID, fname, verbose, bare)
-    use iso_c_binding
     implicit none
     integer,  intent(in) :: ID
     character*(*), intent(in) :: fname
     integer, intent(in) :: verbose
     integer, intent(in) :: bare
-    write(*,*) 'bare=', bare   
     call pio_init_c(ID, C0(fname), verbose, bare)
   end subroutine pio_init
   
-  subroutine pio_init_par(ID, fname, nprocs, myid, verbose, bare) 
+  subroutine pio_init_par(ID, fname, verbose, bare, mycomm) 
     use iso_c_binding
     implicit none
     integer, intent(in) :: ID
     character*(*), intent(in) :: fname
-    integer, intent(in) :: nprocs
-    integer, intent(in) :: myid
     integer, intent(in) :: verbose
     integer, intent(in) :: bare
-    call pio_init_par_c(ID, C0(fname), nprocs, myid, verbose, bare)
+    integer, intent(in) :: mycomm
+    
+    call pio_init_par_c(ID, C0(fname), verbose, bare, mycomm)
+    
   end subroutine pio_init_par
 
   integer(c_int64_t) function pio_width(ID, var)
@@ -399,6 +407,8 @@ contains
     use iso_c_binding
     implicit none
     integer(c_int), intent(in) :: id
+
     call pio_release_c(id)
+    
   end subroutine pio_release_main
 end module pio_interface
