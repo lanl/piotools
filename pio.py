@@ -32,6 +32,12 @@ from __future__ import print_function
 import numpy as np
 import struct
 
+try:
+    import gzip
+except:
+    # ignore failure, we will do simple open
+    pass
+
 
 class pio:
     """
@@ -53,12 +59,27 @@ class pio:
         """
         self.verbose = verbose
 
-        self.fp = open(theFile, mode="rb")
-
         self.offset = 0
+
+        self.gzip = 0
+        try:
+            self.fp = gzip.open(theFile, mode="rb")
+            self.gzip = 1
+            s = self.str()
+
+            self.seek(0)
+        except:
+            if theFile.endswith(".gz"):
+                raise ValueError(".gz files not supported: gzip module not found")
+
+            if self.gzip:
+                self.fp.close()
+            self.gzip = 0
+            self.fp = open(theFile, mode="rb")
 
         # read signature
         s = self.str(8)
+
         if self.verbose:
             print(f"  File type is: {s}")
         if not s.lower() == b"pio_file":
@@ -423,7 +444,7 @@ class pio:
         offset = int(8 * offset)
         self.fp.seek(offset)
 
-    def str(self, count=1, offset=None):
+    def str(self, count=8, offset=None):
         """ Reads count bytes from the input file """
         count = int(count)
         if offset is not None:
@@ -443,7 +464,10 @@ class pio:
         count = int(count)
         if offset is not None:
             self.seek(offset)
-        value = np.fromfile(self.fp, dtype="double", count=count)
+        if self.gzip:
+            value = np.frombuffer(self.fp.read(count * 8), dtype="double", count=count)
+        else:
+            value = np.fromfile(self.fp, dtype="double", count=count)
         self.offset += count
         if count == 1 and (not force):
             return value[0]
@@ -477,12 +501,18 @@ if __name__ == "__main__":
         p.updateCsrIndices("chunk_nummat", "chunk_mat", "vcell", 1)
         print("CSR variables are:")
         for n in p.names:
-            #if p.names[n]["length"] == p.csrLen:
+            # if p.names[n]["length"] == p.csrLen:
             print("    ", n)
         c = p.readArray("hist_cycle_0")
         print(c)
         c = p.readArray("hist_time_0")
         print(c)
+        nbrs = [None] * (2 * p.ndim)
+        for i in range(2 * p.ndim):
+            nbrs[i] = p.readArray(f"cell_index_{i+1}")
+
+        iCell = 2713297
+        print(iCell, [nbrs[j][iCell] for j in range(2 * p.ndim)])
         # Will write chunk_vol and chunk_eng for all CSR Indices
         outName = "bigfile-dmp000000"
         myVars = ["chunk_vol", "chunk_eng"]

@@ -20,6 +20,19 @@
 #include <string>
 #include <vector>
 
+#ifdef ENABLE_GZ
+#include <zlib.h>
+#define MYFILE_T gzFile
+#define fopen(fname, fmode) gzopen(fname, fmode)
+#define fread(the_ptr, the_size, the_count, the_file)                          \
+  (gzread(the_file, the_ptr, (the_size * the_count)) / (the_size))
+#define fseek(the_file, the_value, the_mode)                                   \
+  gzseek(the_file, the_value, the_mode)
+#define fclose(the_file) gzclose(the_file)
+#else
+#define MYFILE_T FILE *
+#endif
+
 #pragma pack(push, 1)
 struct PIOHeader {
   char filetype[8];
@@ -138,7 +151,7 @@ public:
   void seek(double offset) { seekRaw(8.0 * offset); }
 
 private:
-  FILE *fp;
+  MYFILE_T fp;
   int ndim_;
   int numcell_;
   PIOHeader header_;
