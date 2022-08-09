@@ -1,7 +1,10 @@
 #ifndef _PIO_PARALLEL_UTILS_H_
 #define _PIO_PARALLEL_UTILS_H_
 
+#include <stdlib.h>
+
 #ifndef ENABLE_MPI
+
 // No MPI
 int pio_nprocs() { return 1; }
 int pio_myrank() { return 0; }
